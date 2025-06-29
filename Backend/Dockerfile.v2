@@ -1,0 +1,50 @@
+# Build stage
+FROM golang:1.23 AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Copy .env file into the build context and container
+COPY .env .env
+
+RUN go build -o main /app/src/cmd/v2/main.go
+
+# Install migrate tool
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+# Run stage with Ubuntu as the base image
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install ca-certificates -y
+RUN useradd -m appuser
+
+WORKDIR /home/appuser/
+
+# Create necessary directories
+RUN mkdir -p /home/appuser/public && \
+    mkdir -p /home/appuser/db/migrations
+
+# Copy application and environment files
+COPY --from=builder /app/main .
+COPY --from=builder /app/.env /home/appuser/.env
+#COPY ./public /home/appuser/public
+COPY --from=builder /app/scripts /home/appuser/scripts
+COPY --from=builder /app/db /home/appuser/db
+COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
+
+# Make scripts executable
+RUN chmod +x /home/appuser/scripts/migrate.sh
+
+# Set proper permissions
+RUN chown -R appuser:appuser /home/appuser && \
+    chmod 644 /home/appuser/.env && \
+    chmod 755 /home/appuser/public
+
+EXPOSE 8080
+
+# Run the app as a non-root user
+USER appuser
+CMD ["./main"]

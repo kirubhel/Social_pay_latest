@@ -1,0 +1,1 @@
+drop type public.transaction_type

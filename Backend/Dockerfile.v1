@@ -1,0 +1,35 @@
+# Build stage
+FROM golang:1.23 AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Copy .env file into the build context and container
+COPY .env .env
+COPY /src/pkg/checkout/adapter/gateway/repo/psql/init.sql /src/pkg/checkout/adapter/gateway/repo/psql/init.sql
+RUN go build -o main /app/src/cmd/v1/main.go
+
+# Run stage with Ubuntu as the base image
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y ca-certificates
+RUN useradd -m appuser
+
+WORKDIR /home/appuser/
+
+# Copy application and environment files
+COPY --from=builder /app/main .
+COPY --from=builder /app/.env /home/appuser/.env
+COPY --from=builder /app/src/pkg/checkout/adapter/gateway/repo/psql/init.sql /app/src/pkg/checkout/adapter/gateway/repo/psql/init.sql
+
+# Ensure the appuser has read permissions to the .env file
+RUN chmod 644 /home/appuser/.env && chown appuser:appuser /home/appuser/.env
+
+EXPOSE 8004
+
+# Run the app as a non-root user
+USER appuser
+CMD ["./main"]

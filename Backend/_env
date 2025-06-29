@@ -1,0 +1,76 @@
+DB_HOST=postgres.database.svc.cluster.local
+DB_USER=postgres
+DB_PASS=dsfnsidof23asSAF
+DB_NAME=stock
+DB_PORT=5432
+SSL_MODE=disable
+
+
+HOST=https://api.lakipay.co
+
+CLOUDINARY_CLOUD_NAME=drtar3g1q
+CLOUDINARY_API_KEY=264254951335439
+CLOUDINARY_API_SECRET=iIY4294NyDFKITgNo9MH8PRoA18
+CLOUDINARY_URL=cloudinary://264254951335439:iIY4294NyDFKITgNo9MH8PRoA18@drtar3g1q
+TELEBIRR_THIRD_PARTY_ID=Laki-Pay
+TELEBIRR_PASSWORD=jBq7JfxTs0C5ji0VPKakmRSgBbeh4NO0juJ1LXnPIOw=
+TELEBIRR_SECURITY_CREDENTIAL=SvO8Px+vMnrGxTnZFw5tjUopf08sr1GZxs7qE3lmzG0=
+TELEBIRR_SHORT_CODE=514377
+TELEBIRR_RESULT_URL=http://api.LAKIPAY.et:6080/api/accounts/telebirr/transactionstatus
+
+# M-PESA Configuration
+SAFARICOM_USERNAME=jgdPJACy5TPGniKsmxahZgjYsfCn9ILI2LZanmk5kukRycGd
+SAFARICOM_PASSWORD=nLIqp5u77VqO2TKshWYAOaG33sMiCkGh7g6NOcnLKFsoneFpwnwskDaOMWs4Vgc1
+MPESA_BASE_URL=https://api.lakipay.co
+MPESA_CALLBACK_BASE_URL=https://api.lakipay.co/account/mpesa/transaction-status
+
+# Telebirr Configuration
+TELEBIRR_SECURITY_CREDENTIAL=SvO8Px+vMnrGxTnZFw5tjUopf08sr1GZxs7qE3lmzG0=
+TELEBIRR_PASSWORD=jBq7JfxTs0C5ji0VPKakmRSgBbeh4NO0juJ1LXnPIOw=
+TELEBIRR_BASE_URL=https://api.lakipay.co
+TELEBIRR_SHORT_CODE=514377
+TELEBIRR_IDENTITY_ID=51437701
+LAKIPAY_API_URL=https://api.lakipay.co/api/v2/settle/std
+
+# CBE Configuration
+CBE_MERCHANT_ID=USSDPushCaller
+CBE_MERCHANT_KEY=8eZVmhR2RmGWW/1P8DjLDpHiiiLUle0u
+CBE_TERMINAL_ID=493929
+CBE_CREDENTIAL_KEY=vir3/kIiDrIIAirLYHGW3Q==
+CBE_BASE_URL=https://api-cbe.lakipay.co
+
+# Cybersource Configuration
+CYBERSOURCE_ACCESS_KEY=10039b1138cd3582aa62e4994233c0d4
+CYBERSOURCE_PROFILE_ID=F39EE97D-B53B-46DF-924E-8EDF122480F5
+CYBERSOURCE_SECRET_KEY=6769637d52564f1883f12629f99311b5b5e0ea8edea5466aba35879f66eb5c65c80b83973fb24fa0aa276b6dfd6a10d212d317972b55488086567d745fde8dec3155a04a9cab4fd89a16a6364234b762d4efdce30b854e47842fdccc5fe40327ab947937dd8e4abfab08438486d2e9d0101968808f064ffebdb6d47994eb6e7b
+CYBERSOURCE_BASE_URL=https://testsecureacceptance.cybersource.com
+
+# General Configuration
+AFRO_MESSAGE_API_KEY=eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoiV2dKVzR4BUmtDM3ZNeE5xM3VwWTNkS2Y4V3hSRjhiam4iLCJleHAiOjE4NjM4MDM2MjIsImlhdCI6MTcwNTk1MDgyMiwianRpIjoiODNkYWQxNWUtODU4Ny00NTU0LTkxZWItZDYxYTU0NDNjYTkzIn0.xTzHDwpU9qkRurb0iCnixPFs3qanu3pk86L3hJTXZEI
+YIMULU_API_KEY=NTpkMzdjNTQ1Zi0zNDU2LTQ4MjMtOGZjNy1lMGVkNTRhOGU1MTU6d3JqNzB1YTlGVWdUVzdZODdPVUtwWTFxc3gmMEFDWjg=
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:3003,http://localhost:3001,https://api.lakipay.co,https://dashboard.lakipay.co,https://checkout.lakipay.co
+APP_ENV=development
+APP_URL_V2=https://api.lakipay.co
+APP_CHECKOUT_URL=https://checkout.lakipay.co
+
+# Kafka Configuration
+KAFKA_BROKERS=kafka-service.kafka.svc.cluster.local:9092
+KAFKA_TOPIC_PAYMENT_STATUS=payment_status
+KAFKA_TOPIC_WEBHOOK_DISPATCH=webhook_dispatch
+KAFKA_GROUP_ID=webhook-service
+
+# Webhook Configuration
+WEBHOOK_MAX_RETRIES=3
+WEBHOOK_REQUEST_TIMEOUT=30s
+
+# Awash Bank Test BaseUrl
+AWASH_TEST_BASE_URL=https://vpn.lakipay.co/awashpaytest/Rest
+AWASH_TEST_PASSWORD=2f9e0dcf-14a4-4a7d-953c-07877f8f9be5
+AWASH_TEST_MERCHANT_CODE=220323
+AWASH_TEST_TIN_NUMBER=22032300
+AWASH_TEST_CALLBACK_URL=https://172.19.251.2:32010/api/v2/settle/awash 
+
+KMI_ACCESS_KEY=cc4025404f1b43d5a066d003b6b816ce
+KMI_SECRET_KEY=4a5ea5ca21984ad7a40a995a66c561d3
+KMI_SMS_URL=http://api.kmicloud.com/sms/send/v1/otp
+KMI_SMS_FROM=LakiPay

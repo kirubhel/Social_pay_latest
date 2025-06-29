@@ -1,0 +1,35 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:latest
+    container_name: socialpay_postgres_container
+    environment:
+      POSTGRES_USER: postgres # User for PostgreSQL authentication
+      POSTGRES_PASSWORD: Ashu.3.10 # Password for PostgreSQL authentication
+      POSTGRES_DB: stock # Name of the database to be created
+    ports:
+      - "5433:5432" # Expose PostgreSQL port for local access; adjust as necessary
+    volumes:
+      - pg_data:/var/lib/postgresql/data # Persistent storage for database data
+    networks:
+      - app-network # Ensures network connectivity with other containers
+
+  golang-app:
+    image: ashenafii/socialpay:latest # Docker image for your Go application
+    container_name: socialpay # The name of the container for your Go application
+    depends_on:
+      - postgres # Ensures that the postgres service is started before this service
+    env_file:
+      - .env # Path to the environment file containing environment variables
+    ports:
+      - "3000:3000" # Port mapping for the Go application; adjust if necessary
+    restart: always # Ensures the container restarts automatically if it crashes
+    networks:
+      - app-network # Ensures the Go app container can communicate with postgres
+
+volumes:
+  pg_data: # Named volume for PostgreSQL data storage
+
+networks:
+  app-network: # Custom network for service communication
+    driver: bridge # Uses Docker's default bridge network
