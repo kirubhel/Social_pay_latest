@@ -7,44 +7,236 @@ import Image from 'next/image'
 import { useAuthStore } from '@/stores/auth'
 import { EyeIcon, EyeSlashIcon, ArrowRightIcon, SparklesIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, ShieldCheckIcon, CreditCardIcon, StarIcon } from '@heroicons/react/24/solid'
+import { authAPI } from '@/lib/api'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [step, setStep] = useState<'phone' | 'otp'>('phone')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [otpToken, setOtpToken] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
   const router = useRouter()
   const login = useAuthStore((state) => state.login)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Function to normalize phone number (remove leading 0 if present)
+  const normalizePhoneNumber = (phoneNumber: string) => {
+    if ((phoneNumber.startsWith('07') || phoneNumber.startsWith('09')) && phoneNumber.length === 10) {
+      return phoneNumber.slice(1) // Remove the leading 0
+    }
+    return phoneNumber
+  }
+
+  const validatePhoneNumber = (phone: string) => {
+    const normalizedPhone = normalizePhoneNumber(phone)
+    // Accept 07xxxxxxxx, 09xxxxxxxx (10 digits) or 7xxxxxxxx, 9xxxxxxxx (9 digits)
+    const isValid10Digit = /^(07|09)\d{8}$/.test(phone)
+    const isValid9Digit = /^[79]\d{8}$/.test(phone)
+    const isNormalizedValid = /^[79]\d{8}$/.test(normalizedPhone)
+    
+    return (isValid10Digit || isValid9Digit) && isNormalizedValid
+  }
+
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError('')
 
+    if (!validatePhoneNumber(phoneNumber)) {
+      setError('Phone number must start with 07, 09 (10 digits) or 7, 9 (9 digits)')
+      return
+    }
+
+    setIsLoading(true)
+
     try {
-      // Mock login - replace with actual API call
-      if (email === 'admin@socialpay.com' && password === 'password') {
-        const mockUser = {
-          id: '1',
-          email: 'admin@socialpay.com',
-          name: 'John Doe',
-          role: 'admin' as const,
+      // Normalize phone number before proceeding
+      const normalizedPhone = normalizePhoneNumber(phoneNumber)
+      
+      // Initialize pre-session first
+      const preSessionResponse = await authAPI.initPreSession()
+      
+      if (preSessionResponse.success) {
+        // For login, we need to create a phone auth request
+        // This might require initiating phone authentication
+        // For now, let's simulate getting an OTP token
+        setOtpToken(preSessionResponse.data?.token || 'temp-token')
+        setPhoneNumber(normalizedPhone) // Update to use normalized phone number
+        setStep('otp')
+        setError('')
+      } else {
+        setError('Failed to initialize login. Please try again.')
+      }
+    } catch (err: any) {
+      setError('Login initialization failed. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleOTPSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!otpCode.trim()) {
+      setError('Please enter the verification code')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const response = await authAPI.signIn(otpToken, otpCode, {
+        prefix: '',
+        number: phoneNumber
+      })
+
+      if (response.success) {
+        // Store auth tokens
+        localStorage.setItem('authToken', response.data.token.active)
+        localStorage.setItem('refreshToken', response.data.token.refresh)
+        
+        // Update auth store
+        const user = {
+          id: response.data.user.id,
+          name: `${response.data.user.first_name} ${response.data.user.last_name}`,
+          email: '', // Phone-based auth might not have email
+          role: response.data.user.user_type as 'admin' | 'merchant' | 'user',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }
         
-        login(mockUser, 'mock-token-123')
+        login(user, response.data.token.active)
         router.push('/dashboard')
       } else {
-        setError('Invalid email or password')
+        setError(response.error?.message || 'Invalid verification code')
       }
-    } catch (err) {
-      setError('Login failed. Please try again.')
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error?.message || 'Login failed. Please try again.'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const resendOTP = async () => {
+    setIsLoading(true)
+    try {
+      // Re-initialize to get new OTP
+      const preSessionResponse = await authAPI.initPreSession()
+      if (preSessionResponse.success) {
+        setOtpToken(preSessionResponse.data?.token || 'temp-token')
+        setOtpCode('')
+        setError('')
+      }
+    } catch (err) {
+      setError('Failed to resend code. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (step === 'otp') {
+    return (
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Animated Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-green-50 via-white to-brand-gold-50">
+          <div className="absolute top-0 left-0 w-full h-full">
+            <div className="absolute top-20 left-20 w-64 h-64 bg-brand-green-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+            <div className="absolute top-32 right-20 w-64 h-64 bg-brand-gold-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+            <div className="absolute -bottom-8 left-1/2 w-64 h-64 bg-brand-green-300/10 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+          </div>
+        </div>
+
+        {/* OTP Verification Container */}
+        <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
+              <div className="text-center mb-6">
+                <Image
+                  src="/logo.png"
+                  alt="Social Pay Logo"
+                  width={200}
+                  height={10}
+                  className="object-contain mx-auto mb-4"
+                  priority
+                />
+                <h2 className="text-xl font-bold text-gray-900 mb-1">
+                  Enter Verification Code
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  We've sent a verification code to +251{phoneNumber}
+                </p>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-xl">
+                  <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleOTPSubmit} className="space-y-4">
+                <div className="group">
+                  <label htmlFor="otpCode" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Verification Code
+                  </label>
+                  <input
+                    id="otpCode"
+                    name="otpCode"
+                    type="text"
+                    maxLength={6}
+                    required
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3 py-2.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl focus:ring-2 focus:ring-brand-green-500 focus:border-transparent transition-all duration-200 placeholder-gray-400 text-center text-lg tracking-widest"
+                    placeholder="123456"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="group w-full bg-gradient-to-r from-brand-green-500 to-brand-gold-400 hover:from-brand-green-600 hover:to-brand-gold-500 text-white font-semibold py-2.5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <span>Verifying...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <span>Sign In</span>
+                      <ArrowRightIcon className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
+                    </div>
+                  )}
+                </button>
+
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-2">Didn't receive the code?</p>
+                  <button
+                    type="button"
+                    onClick={resendOTP}
+                    disabled={isLoading}
+                    className="text-sm font-semibold text-brand-green-600 hover:text-brand-green-500 transition-colors hover:underline"
+                  >
+                    Resend Code
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => setStep('phone')}
+                  className="text-sm font-semibold text-gray-600 hover:text-gray-500 transition-colors"
+                >
+                  ← Back to Phone Number
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -63,7 +255,6 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="text-center mb-8">
-           
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Welcome to{' '}
               <span className="bg-gradient-to-r from-brand-green-600 to-brand-gold-500 bg-clip-text text-transparent">
@@ -78,22 +269,19 @@ export default function LoginPage() {
           {/* Form Container */}
           <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
             <div className="text-center mb-6">
-              {/* <div className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-r from-brand-green-500 to-brand-gold-400 rounded-xl mb-3">
-                <SparklesIcon className="w-5 h-5 text-white" />
-              </div> */}
               <Image
-              src="/logo.png"
-              alt="Social Pay Logo"
-              width={200}
-              height={10}
-              className="object-contain mx-auto mb-4"
-              priority
-            />
+                src="/logo.png"
+                alt="Social Pay Logo"
+                width={200}
+                height={10}
+                className="object-contain mx-auto mb-4"
+                priority
+              />
               <h2 className="text-xl font-bold text-gray-900 mb-1">
                 Welcome Back
               </h2>
               <p className="text-gray-600 text-sm">
-                Sign in to continue your payment journey
+                Sign in with your phone number
               </p>
             </div>
 
@@ -103,85 +291,66 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handlePhoneSubmit} className="space-y-4">
               <div className="space-y-3">
                 <div className="group">
-                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    Email Address
+                  <label htmlFor="phoneNumber" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Phone Number
                   </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl focus:ring-2 focus:ring-brand-green-500 focus:border-transparent transition-all duration-200 placeholder-gray-400 text-sm"
-                    placeholder="your@email.com"
-                  />
-                </div>
-
-                <div className="group">
-                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    Password
-                  </label>
-                  <div className="relative">
+                  <div className="flex">
+                    <div className="flex items-center px-3 py-2.5 bg-gray-100 border border-r-0 border-gray-200/60 rounded-l-xl">
+                      <span className="text-sm mr-1">🇪🇹</span>
+                      <span className="text-xs text-gray-600 font-medium">+251</span>
+                    </div>
                     <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      type="tel"
                       required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3 py-2.5 pr-10 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl focus:ring-2 focus:ring-brand-green-500 focus:border-transparent transition-all duration-200 placeholder-gray-400 text-sm"
-                      placeholder="Enter your password"
+                      value={phoneNumber}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/\D/g, '')
+                        
+                        // Limit based on starting digits
+                        if (value.startsWith('07') || value.startsWith('09')) {
+                          // For 07/09 formats, limit to 10 characters
+                          if (value.length > 10) {
+                            value = value.slice(0, 10)
+                          }
+                        } else if (value.startsWith('7') || value.startsWith('9')) {
+                          // For 7/9 formats, limit to 9 characters
+                          if (value.length > 9) {
+                            value = value.slice(0, 9)
+                          }
+                        } else {
+                          // For other formats, limit to 10 characters to allow typing
+                          if (value.length > 10) {
+                            value = value.slice(0, 10)
+                          }
+                        }
+                        
+                        setPhoneNumber(value)
+                      }}
+                      className="flex-1 px-3 py-2.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-r-xl focus:ring-2 focus:ring-brand-green-500 focus:border-transparent transition-all duration-200 placeholder-gray-400 text-sm"
+                      placeholder="0911123456"
                     />
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center group-hover:scale-110 transition-transform duration-200"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeSlashIcon className="h-4 w-4 text-gray-400 hover:text-brand-green-500 transition-colors" />
-                      ) : (
-                        <EyeIcon className="h-4 w-4 text-gray-400 hover:text-brand-green-500 transition-colors" />
-                      )}
-                    </button>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-brand-green-600 border-gray-300 rounded focus:ring-brand-green-500 focus:ring-2"
-                  />
-                  <span className="ml-2 text-sm text-gray-600">Remember me</span>
-                </label>
-                <Link 
-                  href="/auth/forgot-password" 
-                  className="text-sm font-semibold text-brand-green-600 hover:text-brand-green-500 transition-colors"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !phoneNumber}
                 className="group w-full bg-gradient-to-r from-brand-green-500 to-brand-gold-400 hover:from-brand-green-600 hover:to-brand-gold-500 text-white font-semibold py-2.5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    <span>Signing you in...</span>
+                    <span>Sending code...</span>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center">
-                    <span>Sign In</span>
+                    <span>Send Verification Code</span>
                     <ArrowRightIcon className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
                   </div>
                 )}
@@ -215,21 +384,20 @@ export default function LoginPage() {
                 Don't have an account?{' '}
                 <Link 
                   href="/auth/register" 
-                  className="font-semibold text-brand-green-600 hover:text-brand-green-500 transition-colors"
+                  className="font-semibold text-brand-green-600 hover:text-brand-green-500 transition-colors hover:underline"
                 >
-                  Create account
+                  Sign up
                 </Link>
               </p>
             </div>
           </div>
 
-          {/* Features & Trust Indicators */}
+          {/* Features Section */}
           <div className="mt-6 space-y-4">
-            {/* Quick Features */}
             <div className="flex justify-center space-x-6 text-center">
               {[
                 { icon: ShieldCheckIcon, text: 'Secure' },
-                { icon: CreditCardIcon, text: 'Fast Payments' },
+                { icon: CreditCardIcon, text: 'Fast' },
                 { icon: CheckCircleIcon, text: 'Trusted' }
               ].map((feature, index) => (
                 <div key={index} className="flex flex-col items-center">
@@ -240,19 +408,6 @@ export default function LoginPage() {
                 </div>
               ))}
             </div>
-
-            {/* Trust Indicators */}
-            <div className="text-center">
-              <p className="text-xs text-gray-500 mb-2">Trusted by 50,000+ businesses</p>
-              <div className="flex items-center justify-center space-x-3 opacity-60">
-                <div className="w-5 h-5 bg-gray-300 rounded"></div>
-                <div className="w-5 h-5 bg-gray-300 rounded"></div>
-                <div className="w-5 h-5 bg-gray-300 rounded"></div>
-                <div className="w-5 h-5 bg-gray-300 rounded"></div>
-              </div>
-            </div>
-
-            
           </div>
         </div>
       </div>

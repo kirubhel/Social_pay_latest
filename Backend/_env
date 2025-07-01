@@ -74,3 +74,11 @@ KMI_ACCESS_KEY=cc4025404f1b43d5a066d003b6b816ce
 KMI_SECRET_KEY=4a5ea5ca21984ad7a40a995a66c561d3
 KMI_SMS_URL=http://api.kmicloud.com/sms/send/v1/otp
 KMI_SMS_FROM=LakiPay
+
+
+
+# ALTER TABLE merchants.addresses ADD COLUMN phone_number VARCHAR(20);
+# ALTER TABLE merchants.addresses ADD COLUMN sub_city VARCHAR(20);
+# ALTER TABLE merchants.addresses ADD COLUMN woreda VARCHAR(20);
+# ALTER TABLE merchants.addresses ADD COLUMN secondary_phone_number VARCHAR(20);
+# ALTER TABLE merchants.addresses ADD COLUMN email VARCHAR(20);
