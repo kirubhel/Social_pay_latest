@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment } from 'react'
+import { Fragment, useState, useRef, useEffect } from 'react'
 import { Menu, Transition } from '@headlessui/react'
 import { 
   Bars3Icon, 
@@ -9,14 +9,94 @@ import {
   MagnifyingGlassIcon,
   ChevronDownIcon,
   CogIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  XMarkIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 
+// Mock search suggestions
+const searchSuggestions = [
+  { type: 'transaction', text: 'TXN-2024-001', description: 'Abebe Kebede - 2,450 ETB' },
+  { type: 'customer', text: 'Sara Ahmed', description: 'Customer - 15 transactions' },
+  { type: 'transaction', text: 'Failed payments', description: '3 failed transactions today' },
+  { type: 'customer', text: 'Michael Tadesse', description: 'VIP Customer - 89 transactions' },
+  { type: 'filter', text: 'Telebirr payments', description: 'Filter by payment method' },
+]
+
+const recentSearches = [
+  'TXN-2024-001',
+  'Abebe Kebede',
+  'Failed payments',
+  'Telebirr',
+]
+
 export function Header() {
   const { user, logout } = useAuthStore()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Filter suggestions based on search query
+  const filteredSuggestions = searchQuery.length > 0 
+    ? searchSuggestions.filter(item => 
+        item.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : []
+
+  // Handle search input changes
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchQuery(value)
+    setShowSuggestions(value.length > 0 || isSearchFocused)
+  }
+
+  // Handle search focus
+  const handleSearchFocus = () => {
+    setIsSearchFocused(true)
+    setShowSuggestions(true)
+  }
+
+  // Handle search blur
+  const handleSearchBlur = () => {
+    // Delay hiding suggestions to allow clicks
+    setTimeout(() => {
+      setIsSearchFocused(false)
+      setShowSuggestions(false)
+    }, 200)
+  }
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery('')
+    setShowSuggestions(false)
+    searchInputRef.current?.focus()
+  }
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion: string) => {
+    setSearchQuery(suggestion)
+    setShowSuggestions(false)
+    // Here you would typically trigger the actual search
+    console.log('Searching for:', suggestion)
+  }
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setShowSuggestions(false)
+      searchInputRef.current?.blur()
+    }
+    if (e.key === 'Enter') {
+      setShowSuggestions(false)
+      // Trigger search
+      console.log('Searching for:', searchQuery)
+    }
+  }
 
   return (
     <div className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-x-4 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl px-4 shadow-lg sm:gap-x-6 sm:px-6 lg:px-8">
@@ -41,18 +121,124 @@ export function Header() {
       <div className="h-6 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent lg:hidden" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-        {/* Enhanced Search */}
+        {/* Enhanced Functional Search */}
         <div className="relative flex flex-1 max-w-md">
           <div className="relative w-full group">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center w-12">
               <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 group-focus-within:text-brand-green-500 transition-colors duration-200" aria-hidden="true" />
             </div>
+            
             <input
-              className="block w-full rounded-2xl border-0 bg-gradient-to-r from-gray-50 to-gray-100 py-3 pl-12 pr-4 text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-brand-green-500 focus:bg-white hover:bg-white transition-all duration-200 shadow-sm hover:shadow-md focus:shadow-lg sm:text-sm sm:leading-6"
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+              onKeyDown={handleKeyDown}
+              className="block w-full rounded-2xl border-0 bg-gradient-to-r from-gray-50 to-gray-100 py-3 pl-12 pr-12 text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-brand-green-500 focus:bg-white hover:bg-white transition-all duration-200 shadow-sm hover:shadow-md focus:shadow-lg sm:text-sm sm:leading-6"
               placeholder="Search transactions, customers..."
               type="search"
             />
+
+            {/* Clear button */}
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                className="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
+
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-brand-green-500/5 to-brand-gold-500/5 opacity-0 group-focus-within:opacity-100 transition-opacity duration-200 pointer-events-none" />
+
+            {/* Search Suggestions Dropdown */}
+            {showSuggestions && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-100 z-50 max-h-80 overflow-y-auto">
+                {/* Search Results */}
+                {searchQuery.length > 0 && filteredSuggestions.length > 0 && (
+                  <div className="p-2">
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Search Results
+                    </div>
+                    {filteredSuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestionClick(suggestion.text)}
+                        className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-brand-green-50 rounded-xl transition-colors duration-150 group"
+                      >
+                        <div className={cn(
+                          'w-8 h-8 rounded-lg flex items-center justify-center',
+                          suggestion.type === 'transaction' && 'bg-blue-100 text-blue-600',
+                          suggestion.type === 'customer' && 'bg-green-100 text-green-600',
+                          suggestion.type === 'filter' && 'bg-purple-100 text-purple-600'
+                        )}>
+                          <MagnifyingGlassIcon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 group-hover:text-brand-green-700 transition-colors">
+                            {suggestion.text}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {suggestion.description}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Recent Searches */}
+                {searchQuery.length === 0 && recentSearches.length > 0 && (
+                  <div className="p-2">
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                      <ClockIcon className="h-3 w-3" />
+                      Recent Searches
+                    </div>
+                    {recentSearches.map((search, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestionClick(search)}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-xl transition-colors duration-150"
+                      >
+                        <ClockIcon className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-700 hover:text-brand-green-700 transition-colors">
+                          {search}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* No Results */}
+                {searchQuery.length > 0 && filteredSuggestions.length === 0 && (
+                  <div className="p-4 text-center">
+                    <p className="text-sm text-gray-500">
+                      No results found for "{searchQuery}"
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Try searching for transactions, customers, or payment methods
+                    </p>
+                  </div>
+                )}
+
+                {/* Quick Actions */}
+                <div className="border-t border-gray-100 p-2">
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Quick Actions
+                  </div>
+                  <button
+                    onClick={() => handleSuggestionClick('Advanced search')}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-xl transition-colors duration-150"
+                  >
+                    <MagnifyingGlassIcon className="h-4 w-4 text-brand-green-600" />
+                    <span className="text-sm text-brand-green-700 font-medium">
+                      Advanced Search
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -127,7 +127,7 @@ export default function RegisterPage() {
         title: formData.title,
         first_name: formData.firstName,
         last_name: formData.lastName,
-        phone_prefix: '+251',
+        phone_prefix: '',  // Send empty prefix to backend
         phone_number: normalizedPhone,
         password: formData.password,
         password_hint: formData.passwordHint,
@@ -136,7 +136,7 @@ export default function RegisterPage() {
 
       if (response.success) {
         setOtpToken(response.data.auth.token)
-        setPhoneData({ prefix: '+251', number: normalizedPhone })
+        setPhoneData({ prefix: '', number: normalizedPhone })  // Store with empty prefix
         setStep('verify-otp')
       } else {
         setErrors({ general: response.error?.message || 'Registration failed' })
@@ -191,7 +191,7 @@ export default function RegisterPage() {
         title: formData.title,
         first_name: formData.firstName,
         last_name: formData.lastName,
-        phone_prefix: '+251',
+        phone_prefix: '',  // Send empty prefix to backend
         phone_number: normalizedPhone,
         password: formData.password,
         password_hint: formData.passwordHint,
