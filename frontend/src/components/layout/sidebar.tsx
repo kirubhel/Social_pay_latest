@@ -46,39 +46,70 @@ export function Sidebar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
-    <div className="flex h-full w-64 flex-col bg-white shadow-sm border-r">
-      {/* Logo */}
-      <div className="flex h-16 items-center px-6 border-b">
-        <Image src="/logo.png" alt="Social Pay" width={160} height={32} className="mr-2" />
-      
+    <div className="flex h-full w-64 flex-col bg-gradient-to-b from-white via-gray-50 to-white shadow-xl border-r border-gray-100">
+      {/* Enhanced Logo Section */}
+      <div className="flex h-20 items-center px-6 border-b border-gray-100 bg-gradient-to-r from-brand-green-50 to-brand-gold-50">
+        <Link href="/" className="flex items-center group">
+          <div className="relative">
+            <Image 
+              src="/logo.png" 
+              alt="Social Pay" 
+              width={160} 
+              height={32} 
+              className="transition-transform duration-200 group-hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-green-500/10 to-brand-gold-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+          </div>
+        </Link>
       </div>
 
-      <nav className="flex-1 space-y-6 px-4 py-4">
+      <nav className="flex-1 space-y-8 px-4 py-6 overflow-y-auto">
         {/* General Menu */}
         <div>
-          <h3 className="px-2 text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+          <h3 className="px-3 mb-4 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+            <div className="w-2 h-2 bg-gradient-to-r from-brand-green-500 to-brand-gold-500 rounded-full"></div>
             General Menu
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {generalMenu.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
+                  'group relative flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200 overflow-hidden',
                   isActive(item.href)
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-gradient-to-r from-brand-green-500 to-brand-green-600 text-white shadow-lg shadow-brand-green-500/25 transform scale-105'
+                    : 'text-gray-700 hover:bg-gradient-to-r hover:from-brand-green-50 hover:to-brand-gold-50 hover:text-brand-green-700 hover:transform hover:scale-105 hover:shadow-md'
                 )}
               >
-                <item.icon
-                  className={cn(
-                    'mr-3 h-5 w-5',
-                    isActive(item.href) ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                  )}
-                  aria-hidden="true"
-                />
-                {item.name}
+                {/* Background decoration for active state */}
+                {isActive(item.href) && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-20" />
+                )}
+                
+                <div className={cn(
+                  'flex items-center justify-center w-8 h-8 rounded-lg mr-3 transition-all duration-200',
+                  isActive(item.href) 
+                    ? 'bg-white/20 backdrop-blur-sm' 
+                    : 'bg-gray-100 group-hover:bg-brand-green-100 group-hover:shadow-sm'
+                )}>
+                  <item.icon
+                    className={cn(
+                      'h-5 w-5 transition-all duration-200',
+                      isActive(item.href) 
+                        ? 'text-white' 
+                        : 'text-gray-500 group-hover:text-brand-green-600'
+                    )}
+                    aria-hidden="true"
+                  />
+                </div>
+                
+                <span className="relative z-10">{item.name}</span>
+                
+                {/* Active indicator */}
+                {isActive(item.href) && (
+                  <div className="absolute right-2 w-2 h-2 bg-white rounded-full animate-pulse" />
+                )}
               </Link>
             ))}
           </div>
@@ -86,58 +117,111 @@ export function Sidebar() {
 
         {/* Management Menu */}
         <div>
-          <h3 className="px-2 text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+          <h3 className="px-3 mb-4 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+            <div className="w-2 h-2 bg-gradient-to-r from-brand-gold-500 to-brand-green-500 rounded-full"></div>
             Management Menu
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {managementMenu.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
+                  'group relative flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200 overflow-hidden',
                   isActive(item.href)
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-gradient-to-r from-brand-green-500 to-brand-green-600 text-white shadow-lg shadow-brand-green-500/25 transform scale-105'
+                    : 'text-gray-700 hover:bg-gradient-to-r hover:from-brand-green-50 hover:to-brand-gold-50 hover:text-brand-green-700 hover:transform hover:scale-105 hover:shadow-md'
                 )}
               >
-                <item.icon
-                  className={cn(
-                    'mr-3 h-5 w-5',
-                    isActive(item.href) ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                  )}
-                  aria-hidden="true"
-                />
-                {item.name}
+                {/* Background decoration for active state */}
+                {isActive(item.href) && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-20" />
+                )}
+                
+                <div className={cn(
+                  'flex items-center justify-center w-8 h-8 rounded-lg mr-3 transition-all duration-200',
+                  isActive(item.href) 
+                    ? 'bg-white/20 backdrop-blur-sm' 
+                    : 'bg-gray-100 group-hover:bg-brand-green-100 group-hover:shadow-sm'
+                )}>
+                  <item.icon
+                    className={cn(
+                      'h-5 w-5 transition-all duration-200',
+                      isActive(item.href) 
+                        ? 'text-white' 
+                        : 'text-gray-500 group-hover:text-brand-green-600'
+                    )}
+                    aria-hidden="true"
+                  />
+                </div>
+                
+                <span className="relative z-10">{item.name}</span>
+                
+                {/* Active indicator */}
+                {isActive(item.href) && (
+                  <div className="absolute right-2 w-2 h-2 bg-white rounded-full animate-pulse" />
+                )}
               </Link>
             ))}
           </div>
         </div>
       </nav>
 
-      {/* Bottom Menu */}
-      <div className="border-t p-4 space-y-1">
+      {/* Enhanced Bottom Menu */}
+      <div className="border-t border-gray-100 bg-gradient-to-r from-gray-50 to-white p-4 space-y-2">
         {bottomMenu.map((item) => (
           <Link
             key={item.name}
             href={item.href}
             className={cn(
-              'group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
+              'group relative flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200 overflow-hidden',
               isActive(item.href)
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                ? 'bg-gradient-to-r from-brand-green-500 to-brand-green-600 text-white shadow-lg shadow-brand-green-500/25 transform scale-105'
+                : 'text-gray-700 hover:bg-gradient-to-r hover:from-brand-green-50 hover:to-brand-gold-50 hover:text-brand-green-700 hover:transform hover:scale-105 hover:shadow-md'
             )}
           >
-            <item.icon
-              className={cn(
-                'mr-3 h-5 w-5',
-                isActive(item.href) ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-              )}
-              aria-hidden="true"
-            />
-            {item.name}
+            {/* Background decoration for active state */}
+            {isActive(item.href) && (
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-20" />
+            )}
+            
+            <div className={cn(
+              'flex items-center justify-center w-8 h-8 rounded-lg mr-3 transition-all duration-200',
+              isActive(item.href) 
+                ? 'bg-white/20 backdrop-blur-sm' 
+                : 'bg-gray-100 group-hover:bg-brand-green-100 group-hover:shadow-sm'
+            )}>
+              <item.icon
+                className={cn(
+                  'h-5 w-5 transition-all duration-200',
+                  isActive(item.href) 
+                    ? 'text-white' 
+                    : 'text-gray-500 group-hover:text-brand-green-600'
+                )}
+                aria-hidden="true"
+              />
+            </div>
+            
+            <span className="relative z-10">{item.name}</span>
+            
+            {/* Active indicator */}
+            {isActive(item.href) && (
+              <div className="absolute right-2 w-2 h-2 bg-white rounded-full animate-pulse" />
+            )}
           </Link>
         ))}
+        
+        {/* Professional footer */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="text-center">
+            <p className="text-xs text-gray-500 font-medium">
+              Social Pay v2.0
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Payment Gateway
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )
