@@ -38,9 +38,23 @@ apiClient.interceptors.response.use(
 
 // Authentication API endpoints
 export const authAPI = {
-  // Initialize pre-session
+  // Initialize pre-session for registration (no phone needed)
   initPreSession: async () => {
-    const response = await apiClient.post('/auth/init')
+    const response = await apiClient.post('/auth/init', {
+      prefix: '',
+      number: ''
+    })
+    return response.data
+  },
+
+  // Initialize pre-session for login (phone required)
+  initPreSessionForLogin: async (phone: { prefix: string, number: string }) => {
+    const requestData = {
+      prefix: '', // Empty for login initialization
+      number: phone.number // Only the phone number for lookup
+    }
+    console.log('Sending to /auth/init:', requestData)
+    const response = await apiClient.post('/auth/init', requestData)
     return response.data
   },
 
@@ -70,11 +84,16 @@ export const authAPI = {
 
   // Sign in with phone + OTP
   signIn: async (token: string, code: string, phone: { prefix: string, number: string }) => {
-    const response = await apiClient.post('/auth/sign-in', {
+    const requestData = {
       token,
       code,
-      phone
-    })
+      phone: {
+        prefix: '', // Empty prefix to match initialization
+        number: phone.number // Should match what was stored during init
+      }
+    }
+    console.log('Sending to /auth/sign-in:', requestData)
+    const response = await apiClient.post('/auth/sign-in', requestData)
     return response.data
   },
 

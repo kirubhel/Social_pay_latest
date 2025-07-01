@@ -127,7 +127,7 @@ export default function RegisterPage() {
         title: formData.title,
         first_name: formData.firstName,
         last_name: formData.lastName,
-        phone_prefix: '',
+        phone_prefix: '+251',
         phone_number: normalizedPhone,
         password: formData.password,
         password_hint: formData.passwordHint,
@@ -191,7 +191,7 @@ export default function RegisterPage() {
         title: formData.title,
         first_name: formData.firstName,
         last_name: formData.lastName,
-        phone_prefix: '',
+        phone_prefix: '+251',
         phone_number: normalizedPhone,
         password: formData.password,
         password_hint: formData.passwordHint,
@@ -225,14 +225,16 @@ export default function RegisterPage() {
           <div className="w-full max-w-md">
             <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
               <div className="text-center mb-6">
-                <Image
-                  src="/logo.png"
-                  alt="Social Pay Logo"
-                  width={200}
-                  height={10}
-                  className="object-contain mx-auto mb-4"
-                  priority
-                />
+                <Link href="/" className="inline-block">
+                  <Image
+                    src="/logo.png"
+                    alt="Social Pay Logo"
+                    width={200}
+                    height={10}
+                    className="object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                    priority
+                  />
+                </Link>
                 <h2 className="text-xl font-bold text-gray-900 mb-1">
                   Verify Your Phone Number
                 </h2>
@@ -329,14 +331,16 @@ export default function RegisterPage() {
           {/* Form Container */}
           <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
             <div className="text-center mb-6">
-              <Image
-                src="/logo.png"
-                alt="Social Pay Logo"
-                width={200}
-                height={10}
-                className="object-contain mx-auto mb-4"
-                priority
-              />
+              <Link href="/" className="inline-block">
+                <Image
+                  src="/logo.png"
+                  alt="Social Pay Logo"
+                  width={200}
+                  height={10}
+                  className="object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                  priority
+                />
+              </Link>
               <h2 className="text-xl font-bold text-gray-900 mb-1">
                 Create Your Account
               </h2>

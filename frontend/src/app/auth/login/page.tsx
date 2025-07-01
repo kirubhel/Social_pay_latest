@@ -51,15 +51,17 @@ export default function LoginPage() {
 
     try {
       // Normalize phone number before proceeding
-      const normalizedPhone = normalizePhoneNumber(phoneNumber)
+      const normalizedPhone = normalizePhoneNumber(phoneNumber).replace(/\s/g, '') // Remove any spaces
+      console.log('Original phone:', phoneNumber)
+      console.log('Normalized phone:', normalizedPhone)
       
-      // Initialize pre-session first
-      const preSessionResponse = await authAPI.initPreSession()
+      // Initialize pre-session for login with phone number
+      const preSessionResponse = await authAPI.initPreSessionForLogin({
+        prefix: '', // Will be overridden by API to +251
+        number: normalizedPhone
+      })
       
       if (preSessionResponse.success) {
-        // For login, we need to create a phone auth request
-        // This might require initiating phone authentication
-        // For now, let's simulate getting an OTP token
         setOtpToken(preSessionResponse.data?.token || 'temp-token')
         setPhoneNumber(normalizedPhone) // Update to use normalized phone number
         setStep('otp')
@@ -68,7 +70,9 @@ export default function LoginPage() {
         setError('Failed to initialize login. Please try again.')
       }
     } catch (err: any) {
-      setError('Login initialization failed. Please try again.')
+      console.log('Login error:', err)
+      const errorMessage = err.response?.data?.error?.message || 'Login initialization failed. Please try again.'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -87,7 +91,7 @@ export default function LoginPage() {
 
     try {
       const response = await authAPI.signIn(otpToken, otpCode, {
-        prefix: '',
+        prefix: '', // Will be overridden by API to +251
         number: phoneNumber
       })
 
@@ -122,15 +126,19 @@ export default function LoginPage() {
   const resendOTP = async () => {
     setIsLoading(true)
     try {
-      // Re-initialize to get new OTP
-      const preSessionResponse = await authAPI.initPreSession()
+      // Re-initialize with phone number to get new OTP
+      const preSessionResponse = await authAPI.initPreSessionForLogin({
+        prefix: '', // Will be overridden by API to +251
+        number: phoneNumber
+      })
       if (preSessionResponse.success) {
         setOtpToken(preSessionResponse.data?.token || 'temp-token')
         setOtpCode('')
         setError('')
       }
-    } catch (err) {
-      setError('Failed to resend code. Please try again.')
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error?.message || 'Failed to resend code. Please try again.'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -153,14 +161,16 @@ export default function LoginPage() {
           <div className="w-full max-w-md">
             <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
               <div className="text-center mb-6">
-                <Image
-                  src="/logo.png"
-                  alt="Social Pay Logo"
-                  width={200}
-                  height={10}
-                  className="object-contain mx-auto mb-4"
-                  priority
-                />
+                <Link href="/" className="inline-block">
+                  <Image
+                    src="/logo.png"
+                    alt="Social Pay Logo"
+                    width={200}
+                    height={10}
+                    className="object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                    priority
+                  />
+                </Link>
                 <h2 className="text-xl font-bold text-gray-900 mb-1">
                   Enter Verification Code
                 </h2>
@@ -269,14 +279,16 @@ export default function LoginPage() {
           {/* Form Container */}
           <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
             <div className="text-center mb-6">
-              <Image
-                src="/logo.png"
-                alt="Social Pay Logo"
-                width={200}
-                height={10}
-                className="object-contain mx-auto mb-4"
-                priority
-              />
+              <Link href="/" className="inline-block">
+                <Image
+                  src="/logo.png"
+                  alt="Social Pay Logo"
+                  width={200}
+                  height={10}
+                  className="object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                  priority
+                />
+              </Link>
               <h2 className="text-xl font-bold text-gray-900 mb-1">
                 Welcome Back
               </h2>
