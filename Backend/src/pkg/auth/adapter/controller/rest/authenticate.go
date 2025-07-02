@@ -269,3 +269,96 @@ func (controller Controller) GetInitLogin(w http.ResponseWriter, r *http.Request
 		},
 	}, http.StatusOK)
 }
+
+// Login with phone and password, with optional OTP (2FA)
+func (controller Controller) LoginWithPhoneAndPassword(w http.ResponseWriter, r *http.Request) {
+	controller.log.SetPrefix("[AUTH] [ADAPTER] [CONTROLLER] [REST] [LoginWithPhoneAndPassword] ")
+	type Request struct {
+		Prefix   string `json:"prefix"`
+		Number   string `json:"number"`
+		Password string `json:"password"`
+	}
+	type Response struct {
+		Success bool        `json:"success"`
+		Data    interface{} `json:"data,omitempty"`
+		Error   interface{} `json:"error,omitempty"`
+	}
+	var req Request
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error:   map[string]string{"type": "INVALID_REQUEST", "message": err.Error()},
+		}, http.StatusBadRequest)
+		return
+	}
+	// 1. Find phone
+	phone, err := controller.interactor.LoginFindPhone(req.Prefix, req.Number)
+	if err != nil || phone == nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error:   map[string]string{"type": "PHONE_NOT_FOUND", "message": "Phone number not found."},
+		}, http.StatusNotFound)
+		return
+	}
+	// 2. Create pre-session
+	preSession, err := controller.interactor.InitPreSession()
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error:   map[string]string{"type": "FAILED_TO_CREATE_PRE_SESSION", "message": err.Error()},
+		}, http.StatusInternalServerError)
+		return
+	}
+	// 3. Init phone auth (for this session)
+	_, err = controller.interactor.InitPhoneAuth(preSession.Token, req.Prefix, req.Number)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error:   map[string]string{"type": "FAILED_TO_INIT_PHONE_AUTH", "message": err.Error()},
+		}, http.StatusInternalServerError)
+		return
+	}
+	// 4. Check password
+	err = controller.interactor.AuthPassword(preSession.Token, req.Password)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error:   map[string]string{"type": "INCORRECT_PASSWORD", "message": err.Error()},
+		}, http.StatusUnauthorized)
+		return
+	}
+	// 5. Check if 2FA/OTP is enabled (for now, always require OTP if phone auth is not verified)
+	err = controller.interactor.CheckPhoneAuth(preSession.Token)
+	if err == nil {
+		// Phone already verified, create session
+		session, at, err := controller.interactor.CreateSession(preSession.Token)
+		if err != nil {
+			SendJSONResponse(w, Response{
+				Success: false,
+				Error:   map[string]string{"type": "FAILED_TO_CREATE_SESSION", "message": err.Error()},
+			}, http.StatusInternalServerError)
+			return
+		}
+		SendJSONResponse(w, Response{
+			Success: true,
+			Data: map[string]interface{}{
+				"token": map[string]string{"active": at, "refresh": session.Token},
+				"user": map[string]interface{}{
+					"id":         session.User.Id,
+					"first_name": session.User.FirstName,
+					"last_name":  session.User.LastName,
+					"user_type":  session.User.UserType,
+				},
+			},
+		}, http.StatusOK)
+		return
+	}
+	// If phone not verified, require OTP
+	SendJSONResponse(w, Response{
+		Success: true,
+		Data: map[string]interface{}{
+			"next_step": "OTP_REQUIRED",
+			"token":     preSession.Token,
+		},
+	}, http.StatusAccepted)
+}

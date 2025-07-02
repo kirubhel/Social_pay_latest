@@ -7,8 +7,8 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   isHydrated: boolean
-  login: (user: User, token: string) => void
-  logout: () => void
+  login: (user: User, token: string) => Promise<void>
+  logout: () => Promise<void>
   updateUser: (user: Partial<User>) => void
   setHydrated: () => void
 }
@@ -20,17 +20,24 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isHydrated: false,
-      login: (user, token) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('authToken', token)
-        }
-        set({ user, token, isAuthenticated: true })
+      login: async (user, token) => {
+        return new Promise<void>((resolve) => {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('authToken', token)
+          }
+          set({ user, token, isAuthenticated: true })
+          resolve()
+        })
       },
-      logout: () => {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('authToken')
-        }
-        set({ user: null, token: null, isAuthenticated: false })
+      logout: async () => {
+        return new Promise<void>((resolve) => {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('authToken')
+            localStorage.removeItem('refreshToken')
+          }
+          set({ user: null, token: null, isAuthenticated: false })
+          resolve()
+        })
       },
       updateUser: (userData) =>
         set((state) => ({

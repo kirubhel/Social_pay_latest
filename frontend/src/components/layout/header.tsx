@@ -129,14 +129,14 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
     <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center border-b border-gray-200/50 bg-white/95 backdrop-blur-xl px-4 shadow-sm sm:px-6 lg:px-8">
       {/* Sidebar/Logo section (left) */}
       <div className="flex items-center flex-shrink-0 lg:hidden">
-        <button 
-          type="button" 
+      <button 
+        type="button" 
           onClick={handleMobileMenuToggle}
           className="-m-2.5 p-2.5 text-gray-700 hover:text-brand-green-600 rounded-xl hover:bg-brand-green-50 transition-all duration-200"
-        >
-          <span className="sr-only">Open sidebar</span>
-          <Bars3Icon className="h-6 w-6" aria-hidden="true" />
-        </button>
+      >
+        <span className="sr-only">Open sidebar</span>
+        <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+      </button>
         <div className="flex items-center ml-2">
           <Image src="/logo.png" alt="Social Pay" width={120} height={32} className="mr-2" />
         </div>
@@ -147,115 +147,115 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         {/* Search Bar (centered) */}
         <div className="flex-1 flex justify-center">
           <div className="relative w-full max-w-lg" ref={searchContainerRef}>
-            <div className="relative w-full group">
-              {/* Search Icon */}
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 group-focus-within:text-brand-green-500 transition-colors duration-200" />
-              </div>
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={handleSearchChange}
-                onFocus={handleSearchFocus}
-                onBlur={handleSearchBlur}
-                onKeyDown={handleKeyDown}
-                type="search"
-                placeholder="Search transactions, customers..."
+  <div className="relative w-full group">
+    {/* Search Icon */}
+    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+      <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 group-focus-within:text-brand-green-500 transition-colors duration-200" />
+    </div>
+    <input
+      ref={searchInputRef}
+      value={searchQuery}
+      onChange={handleSearchChange}
+      onFocus={handleSearchFocus}
+      onBlur={handleSearchBlur}
+      onKeyDown={handleKeyDown}
+      type="search"
+      placeholder="Search transactions, customers..."
                 className="w-full pl-12 pr-12 py-2.5 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 border border-gray-200 shadow-sm hover:shadow-md focus:bg-white focus:ring-2 focus:ring-brand-green-500 focus:border-transparent transition-all text-sm"
-              />
-              {searchQuery && (
-                <button
-                  onClick={clearSearch}
-                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-              {showSuggestions && (
+    />
+    {searchQuery && (
+      <button
+        onClick={clearSearch}
+        className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600"
+      >
+        <XMarkIcon className="h-4 w-4" />
+      </button>
+    )}
+    {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-xl shadow-xl border border-gray-200 max-h-80 overflow-y-auto">
-                  {/* Search Results */}
-                  {searchQuery.length > 0 && filteredSuggestions.length > 0 && (
-                    <div className="p-2">
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Search Results
-                      </div>
-                      {filteredSuggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleSuggestionClick(suggestion.text)}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-lg transition-colors"
-                        >
-                          <div className={cn(
-                            'w-8 h-8 flex items-center justify-center rounded-lg',
-                            suggestion.type === 'transaction' && 'bg-blue-100 text-blue-600',
-                            suggestion.type === 'customer' && 'bg-green-100 text-green-600',
-                            suggestion.type === 'filter' && 'bg-purple-100 text-purple-600'
-                          )}>
-                            <MagnifyingGlassIcon className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">
-                              {suggestion.text}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
-                              {suggestion.description}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Recent Searches */}
-                  {searchQuery.length === 0 && recentSearches.length > 0 && (
-                    <div className="p-2">
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                        <ClockIcon className="h-3 w-3" />
-                        Recent Searches
-                      </div>
-                      {recentSearches.map((search, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleSuggestionClick(search)}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-lg transition-colors"
-                        >
-                          <ClockIcon className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-700">
-                            {search}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* No Results */}
-                  {searchQuery.length > 0 && filteredSuggestions.length === 0 && (
-                    <div className="p-4 text-center">
-                      <p className="text-sm text-gray-500">No results found for "{searchQuery}"</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Try searching for transactions, customers, or payment methods
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Quick Actions */}
-                  <div className="border-t border-gray-100 p-2">
-                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Quick Actions
-                    </div>
-                    <button
-                      onClick={() => handleSuggestionClick('Advanced search')}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-lg transition-colors"
-                    >
-                      <MagnifyingGlassIcon className="h-4 w-4 text-brand-green-600" />
-                      <span className="text-sm font-medium text-brand-green-700">Advanced Search</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+        {/* Search Results */}
+        {searchQuery.length > 0 && filteredSuggestions.length > 0 && (
+          <div className="p-2">
+            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Search Results
             </div>
+            {filteredSuggestions.map((suggestion, index) => (
+              <button
+                key={index}
+                onClick={() => handleSuggestionClick(suggestion.text)}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-lg transition-colors"
+              >
+                <div className={cn(
+                  'w-8 h-8 flex items-center justify-center rounded-lg',
+                  suggestion.type === 'transaction' && 'bg-blue-100 text-blue-600',
+                  suggestion.type === 'customer' && 'bg-green-100 text-green-600',
+                  suggestion.type === 'filter' && 'bg-purple-100 text-purple-600'
+                )}>
+                  <MagnifyingGlassIcon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">
+                    {suggestion.text}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {suggestion.description}
+                  </p>
+                </div>
+              </button>
+            ))}
           </div>
+        )}
+
+        {/* Recent Searches */}
+        {searchQuery.length === 0 && recentSearches.length > 0 && (
+          <div className="p-2">
+            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+              <ClockIcon className="h-3 w-3" />
+              Recent Searches
+            </div>
+            {recentSearches.map((search, index) => (
+              <button
+                key={index}
+                onClick={() => handleSuggestionClick(search)}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-lg transition-colors"
+              >
+                <ClockIcon className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-700">
+                  {search}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* No Results */}
+        {searchQuery.length > 0 && filteredSuggestions.length === 0 && (
+          <div className="p-4 text-center">
+            <p className="text-sm text-gray-500">No results found for "{searchQuery}"</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Try searching for transactions, customers, or payment methods
+            </p>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="border-t border-gray-100 p-2">
+          <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Quick Actions
+          </div>
+          <button
+            onClick={() => handleSuggestionClick('Advanced search')}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-brand-green-50 rounded-lg transition-colors"
+          >
+            <MagnifyingGlassIcon className="h-4 w-4 text-brand-green-600" />
+            <span className="text-sm font-medium text-brand-green-700">Advanced Search</span>
+          </button>
         </div>
+      </div>
+    )}
+            </div>
+  </div>
+</div>
 
         {/* Right controls */}
         <div className="flex items-center gap-x-2 sm:gap-x-4 md:gap-x-6 ml-4">

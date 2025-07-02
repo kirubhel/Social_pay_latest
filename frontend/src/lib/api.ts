@@ -27,11 +27,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken')
-      window.location.href = '/auth/login'
-    }
+    // Don't redirect, just reject the error
     return Promise.reject(error)
   }
 )
@@ -40,22 +36,39 @@ apiClient.interceptors.response.use(
 export const authAPI = {
   // Initialize pre-session for registration (no phone needed)
   initPreSession: async () => {
-    const response = await apiClient.post('/auth/init', {
-      prefix: '',
-      number: ''
-    })
-    return response.data
+    try {
+      const response = await apiClient.post('/auth/init', {
+        prefix: '',
+        number: ''
+      })
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to initialize session'
+        }
+      }
+    }
   },
 
   // Initialize pre-session for login (phone required)
   initPreSessionForLogin: async (phone: { prefix: string, number: string }) => {
-    const requestData = {
-      prefix: '', // Empty for login initialization
-      number: phone.number // Only the phone number for lookup
+    try {
+      const requestData = {
+        prefix: '', // Empty for login initialization
+        number: phone.number // Only the phone number for lookup
+      }
+      const response = await apiClient.post('/auth/init', requestData)
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to initialize login session'
+        }
+      }
     }
-    console.log('Sending to /auth/init:', requestData)
-    const response = await apiClient.post('/auth/init', requestData)
-    return response.data
   },
 
   // Register user
@@ -69,50 +82,194 @@ export const authAPI = {
     password_hint?: string
     confirm_password: string
   }) => {
-    const response = await apiClient.post('/auth/sign-up', userData)
-    return response.data
+    try {
+      const response = await apiClient.post('/auth/sign-up', userData)
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Registration failed'
+        }
+      }
+    }
   },
 
   // Verify OTP after registration
   verifyOTP: async (token: string, code: string) => {
-    const response = await apiClient.post('/auth/verify-otp', {
-      token,
-      code
-    })
-    return response.data
+    try {
+      const response = await apiClient.post('/auth/verify-otp', {
+        token,
+        code
+      })
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'OTP verification failed'
+        }
+      }
+    }
   },
 
   // Sign in with phone + OTP
   signIn: async (token: string, code: string, phone: { prefix: string, number: string }) => {
-    const requestData = {
-      token,
-      code,
-      phone: {
-        prefix: '', // Empty prefix to match initialization
-        number: phone.number // Should match what was stored during init
+    try {
+      const requestData = {
+        token,
+        code,
+        phone: {
+          prefix: '', // Empty prefix to match initialization
+          number: phone.number // Should match what was stored during init
+        }
+      }
+      const response = await apiClient.post('/auth/sign-in', requestData)
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Sign in failed'
+        }
       }
     }
-    console.log('Sending to /auth/sign-in:', requestData)
-    const response = await apiClient.post('/auth/sign-in', requestData)
-    return response.data
   },
 
   // Check session
   checkSession: async () => {
-    const response = await apiClient.get('/auth/check')
-    return response.data
+    try {
+      const response = await apiClient.get('/auth/check')
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Session check failed'
+        }
+      }
+    }
   },
 
   // Set password/2FA
   setPassword: async (password: string) => {
-    const response = await apiClient.post('/auth/password', { password })
-    return response.data
+    try {
+      const response = await apiClient.post('/auth/password', { password })
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to set password'
+        }
+      }
+    }
   },
 
   // Check password/2FA
   checkPassword: async (password: string) => {
-    const response = await apiClient.post('/auth/password/check', { password })
-    return response.data
+    try {
+      const response = await apiClient.post('/auth/password/check', { password })
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Password check failed'
+        }
+      }
+    }
+  },
+
+  // Login with phone and password
+  login: async ({ prefix, number, password }: { prefix: string, number: string, password: string }) => {
+    try {
+      const response = await apiClient.post('/auth/login', {
+        prefix,
+        number,
+        password,
+      })
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Login failed'
+        }
+      }
+    }
+  },
+
+  // Get 2FA status
+  get2FAStatus: async () => {
+    try {
+      const response = await apiClient.get('/auth/2fa/status')
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to get 2FA status'
+        }
+      }
+    }
+  },
+
+  // Enable 2FA
+  enable2FA: async () => {
+    try {
+      const response = await apiClient.post('/auth/2fa/enable')
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to enable 2FA'
+        }
+      }
+    }
+  },
+
+  // Disable 2FA
+  disable2FA: async (password: string) => {
+    try {
+      const response = await apiClient.post('/auth/2fa/disable', { password })
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to disable 2FA'
+        }
+      }
+    }
+  },
+
+  // Verify 2FA setup
+  verify2FASetup: async (code: string) => {
+    try {
+      const response = await apiClient.post('/auth/2fa/verify-setup', { code })
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to verify 2FA setup'
+        }
+      }
+    }
   }
 }
 

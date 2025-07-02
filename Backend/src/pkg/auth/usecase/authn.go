@@ -1,8 +1,6 @@
 package usecase
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"net"
@@ -15,6 +13,7 @@ import (
 	"github.com/socialpay/socialpay/src/pkg/jwt"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Initiate Authentication
@@ -482,18 +481,9 @@ func (uc Usecase) AuthPassword(token string, password string) error {
 		}
 	}
 
-	hasher := sha256.New()
-	_, err = hasher.Write([]byte(password))
-	uc.log.Println(err)
+	// Compare password using bcrypt
+	err = bcrypt.CompareHashAndPassword([]byte(pass.Password), []byte(password))
 	if err != nil {
-		return Error{
-			Type:    "ERRCRATINGPASSHASH",
-			Message: err.Error(),
-		}
-	}
-
-	// Compare passwords
-	if base64.URLEncoding.EncodeToString(hasher.Sum(nil)) != pass.Password {
 		return Error{
 			Type:    "INCORRECT_PASSWORD",
 			Message: "Password is incorrect",
@@ -512,7 +502,6 @@ func (uc Usecase) AuthPassword(token string, password string) error {
 	err = uc.repo.StorePasswordAuth(passAuth)
 
 	return err
-
 }
 
 func (uc Usecase) CheckPasswordAuth(userId uuid.UUID, token string) error {

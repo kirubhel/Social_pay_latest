@@ -134,12 +134,12 @@ export function Sidebar({ onClose }: SidebarProps) {
               {openMenu === 'inventory' && (
                 <div className="ml-8 mt-1 space-y-1">
                   {inventorySubmenu.map(item => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={cn(
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
                         'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-                        isActive(item.href)
+                  isActive(item.href)
                           ? 'bg-brand-green-50 text-brand-green-700 font-bold'
                           : 'text-gray-700 hover:bg-brand-green-50 hover:text-brand-green-700'
                       )}
@@ -176,12 +176,12 @@ export function Sidebar({ onClose }: SidebarProps) {
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={cn(
+                    className={cn(
                         'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-                        isActive(item.href)
+                      isActive(item.href) 
                           ? 'bg-brand-green-50 text-brand-green-700 font-bold'
                           : 'text-gray-700 hover:bg-brand-green-50 hover:text-brand-green-700'
-                      )}
+                    )}
                       onClick={handleLinkClick}
                     >
                       <item.icon className="h-4 w-4 mr-2" />
@@ -204,7 +204,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             >
               <GlobeAltIcon className="h-5 w-5 mr-3" />
               Gateways
-            </Link>
+              </Link>
             {/* ...rest of the menu */}
           </div>
         </div>

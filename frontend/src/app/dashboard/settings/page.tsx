@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, Fragment } from 'react'
+import { useState, useRef, Fragment, useEffect } from 'react'
 import { Tab, Dialog, Transition } from '@headlessui/react'
 import { cn } from '@/lib/utils'
+import { authAPI } from '@/lib/api'
 import {
   UserCircleIcon,
   ShieldCheckIcon,
@@ -313,6 +314,50 @@ function GeneralSettings() {
 
 function Enable2FAModalWrapper() {
   const [modalOpen, setModalOpen] = useState(false)
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+
+  // Fetch 2FA status on component mount
+  useEffect(() => {
+    const fetch2FAStatus = async () => {
+      const response = await authAPI.get2FAStatus()
+      if (response.success) {
+        setIs2FAEnabled(response.data.enabled)
+      }
+    }
+    fetch2FAStatus()
+  }, [])
+
+  const handleToggle2FA = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      if (!is2FAEnabled) {
+        // Enable 2FA
+        const response = await authAPI.enable2FA()
+        if (response.success) {
+          setModalOpen(true)
+        } else {
+          setError(response.error?.message || 'Failed to enable 2FA')
+        }
+      } else {
+        // Disable 2FA
+        const response = await authAPI.disable2FA(currentPassword)
+        if (response.success) {
+          setIs2FAEnabled(false)
+        } else {
+          setError(response.error?.message || 'Failed to disable 2FA')
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <>
       <div className="max-w-2xl mx-auto">
@@ -322,23 +367,75 @@ function Enable2FAModalWrapper() {
         {/* 2-Step Verification Section */}
         <div>
           <h2 className="text-lg font-bold text-gray-900 mb-6">2 - Step Verification</h2>
-          <label className="block text-base font-medium text-gray-800 mb-2">Enable Two Step Verification</label>
-          <button
-            className="mt-2 px-8 py-2 bg-orange-400 hover:bg-orange-500 text-white font-semibold rounded-lg shadow transition-all duration-200"
-            onClick={() => setModalOpen(true)}
-          >
-            Enable
-          </button>
+          <div className="flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-base font-medium text-gray-800">Two Step Verification</label>
+                <p className="text-sm text-gray-600 mt-1">
+                  {is2FAEnabled
+                    ? 'Two-step verification is enabled. You will need to enter a verification code when signing in.'
+                    : 'Enable two-step verification for enhanced security.'}
+                </p>
+              </div>
+              {error && (
+                <div className="text-sm text-red-600 font-medium">{error}</div>
+              )}
+              <button
+                className={cn(
+                  'px-8 py-2 font-semibold rounded-lg shadow transition-all duration-200',
+                  is2FAEnabled
+                    ? 'bg-red-500 hover:bg-red-600 text-white'
+                    : 'bg-brand-green-500 hover:bg-brand-green-600 text-white',
+                  loading && 'opacity-50 cursor-not-allowed'
+                )}
+                onClick={handleToggle2FA}
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <span>Processing...</span>
+                  </div>
+                ) : is2FAEnabled ? (
+                  'Disable'
+                ) : (
+                  'Enable'
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <VerificationCodeModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <VerificationCodeModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onVerify={async (code) => {
+          const response = await authAPI.verify2FASetup(code)
+          if (response.success) {
+            setIs2FAEnabled(true)
+            setModalOpen(false)
+          } else {
+            return response.error?.message || 'Verification failed'
+          }
+        }}
+      />
     </>
   )
 }
 
-function VerificationCodeModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+function VerificationCodeModal({
+  open,
+  onClose,
+  onVerify
+}: {
+  open: boolean
+  onClose: () => void
+  onVerify: (code: string) => Promise<string | undefined>
+}) {
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [resendLoading, setResendLoading] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [error, setError] = useState('')
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const handleChange = (idx: number, value: string) => {
@@ -359,8 +456,36 @@ function VerificationCodeModal({ open, onClose }: { open: boolean, onClose: () =
 
   const handleResend = async () => {
     setResendLoading(true)
-    await new Promise(res => setTimeout(res, 1200))
-    setResendLoading(false)
+    try {
+      const response = await authAPI.enable2FA()
+      if (!response.success) {
+        setError(response.error?.message || 'Failed to resend code')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend code')
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
+  const handleVerify = async () => {
+    const fullCode = code.join('')
+    if (fullCode.length !== 6) {
+      setError('Please enter all 6 digits')
+      return
+    }
+    setVerifying(true)
+    setError('')
+    try {
+      const errorMessage = await onVerify(fullCode)
+      if (errorMessage) {
+        setError(errorMessage)
+      }
+    } catch (err: any) {
+      setError(err.message || 'Verification failed')
+    } finally {
+      setVerifying(false)
+    }
   }
 
   return (
@@ -400,13 +525,27 @@ function VerificationCodeModal({ open, onClose }: { open: boolean, onClose: () =
               <p className="text-gray-600 text-sm mb-6 text-center">
                 To complete your request, a 6-digit verification code has been sent to your mobile number. Please enter the code to confirm.
               </p>
-              <button
-                onClick={handleResend}
-                disabled={resendLoading}
-                className="px-6 py-2 bg-orange-400 hover:bg-orange-500 text-white font-semibold rounded-lg shadow transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {resendLoading ? 'Resending...' : 'Resend Code'}
-              </button>
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 rounded-lg w-full">
+                  <p className="text-red-600 text-sm text-center">{error}</p>
+                </div>
+              )}
+              <div className="flex gap-4">
+                <button
+                  onClick={handleResend}
+                  disabled={resendLoading}
+                  className="px-6 py-2 text-brand-green-600 font-semibold rounded-lg hover:bg-brand-green-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {resendLoading ? 'Resending...' : 'Resend Code'}
+                </button>
+                <button
+                  onClick={handleVerify}
+                  disabled={verifying || code.some(d => !d)}
+                  className="px-6 py-2 bg-brand-green-500 hover:bg-brand-green-600 text-white font-semibold rounded-lg shadow transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {verifying ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
             </Dialog.Panel>
           </Transition.Child>
         </div>

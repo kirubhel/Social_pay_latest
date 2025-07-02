@@ -9,10 +9,6 @@ import { CheckCircleIcon, ShieldCheckIcon, CreditCardIcon, StarIcon } from '@her
 import { authAPI } from '@/lib/api'
 
 export default function RegisterPage() {
-  const [step, setStep] = useState<'register' | 'verify-otp'>('register')
-  const [otpToken, setOtpToken] = useState('')
-  const [phoneData, setPhoneData] = useState({ prefix: '', number: '' })
-  
   const [formData, setFormData] = useState({
     title: 'Mr',
     firstName: '',
@@ -25,11 +21,11 @@ export default function RegisterPage() {
     agreedToTerms: false
   })
   
-  const [otpCode, setOtpCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [successMessage, setSuccessMessage] = useState('')
 
   const router = useRouter()
 
@@ -135,9 +131,11 @@ export default function RegisterPage() {
       })
 
       if (response.success) {
-        setOtpToken(response.data.auth.token)
-        setPhoneData({ prefix: '', number: normalizedPhone })  // Store with empty prefix
-        setStep('verify-otp')
+        setSuccessMessage('Registration successful! Redirecting to login...')
+        // Redirect to login page after 2 seconds
+        setTimeout(() => {
+          router.push('/auth/login?message=Registration successful! Please log in with your credentials.')
+        }, 1000)
       } else {
         setErrors({ general: response.error?.message || 'Registration failed' })
       }
@@ -147,167 +145,6 @@ export default function RegisterPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleOTPSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!otpCode.trim()) {
-      setErrors({ otp: 'OTP code is required' })
-      return
-    }
-    
-    setIsLoading(true)
-
-    try {
-      const response = await authAPI.verifyOTP(otpToken, otpCode)
-
-      if (response.success) {
-        // Store auth tokens
-        localStorage.setItem('authToken', response.data.token.active)
-        localStorage.setItem('refreshToken', response.data.token.refresh)
-        
-        // Redirect to dashboard
-        router.push('/dashboard?message=Registration successful! Welcome to Social Pay.')
-      } else {
-        setErrors({ otp: response.error?.message || 'Invalid OTP code' })
-      }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error?.message || 'OTP verification failed. Please try again.'
-      setErrors({ otp: errorMessage })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const resendOTP = async () => {
-    setIsLoading(true)
-    try {
-      // Normalize phone number before sending to backend
-      const normalizedPhone = normalizePhoneNumber(formData.phoneNumber)
-      
-      // Re-register to get new OTP
-      await authAPI.signUp({
-        title: formData.title,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone_prefix: '',  // Send empty prefix to backend
-        phone_number: normalizedPhone,
-        password: formData.password,
-        password_hint: formData.passwordHint,
-        confirm_password: formData.confirmPassword
-      })
-      
-      // Clear OTP field
-      setOtpCode('')
-      setErrors({})
-    } catch (err) {
-      setErrors({ otp: 'Failed to resend OTP. Please try again.' })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  if (step === 'verify-otp') {
-    return (
-      <div className="min-h-screen relative overflow-hidden">
-        {/* Animated Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-green-50 via-white to-brand-gold-50">
-          <div className="absolute top-0 left-0 w-full h-full">
-            <div className="absolute top-20 left-20 w-64 h-64 bg-brand-green-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-            <div className="absolute top-32 right-20 w-64 h-64 bg-brand-gold-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-            <div className="absolute -bottom-8 left-1/2 w-64 h-64 bg-brand-green-300/10 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-          </div>
-        </div>
-
-        {/* OTP Verification Container */}
-        <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
-          <div className="w-full max-w-md">
-            <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
-              <div className="text-center mb-6">
-                <Link href="/" className="inline-block">
-                  <Image
-                    src="/logo.png"
-                    alt="Social Pay Logo"
-                    width={200}
-                    height={10}
-                    className="object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
-                    priority
-                  />
-                </Link>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">
-                  Verify Your Phone Number
-                </h2>
-                <p className="text-gray-600 text-sm">
-                  We've sent a verification code to +251{phoneData.number}
-                </p>
-              </div>
-
-              {errors.otp && (
-                <div className="mb-4 p-3 bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-xl">
-                  <p className="text-red-600 text-sm font-medium text-center">{errors.otp}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleOTPSubmit} className="space-y-4">
-                <div className="group">
-                  <label htmlFor="otpCode" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    Verification Code
-                  </label>
-                  <input
-                    id="otpCode"
-                    name="otpCode"
-                    type="text"
-                    maxLength={6}
-                    required
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-3 py-2.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl focus:ring-2 focus:ring-brand-green-500 focus:border-transparent transition-all duration-200 placeholder-gray-400 text-center text-lg tracking-widest"
-                    placeholder="123456"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="group w-full bg-gradient-to-r from-brand-green-500 to-brand-gold-400 hover:from-brand-green-600 hover:to-brand-gold-500 text-white font-semibold py-2.5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {isLoading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      <span>Verifying...</span>
-                    </div>
-                  ) : (
-                    <span>Verify Code</span>
-                  )}
-                </button>
-
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-2">Didn't receive the code?</p>
-                  <button
-                    type="button"
-                    onClick={resendOTP}
-                    disabled={isLoading}
-                    className="text-sm font-semibold text-brand-green-600 hover:text-brand-green-500 transition-colors hover:underline"
-                  >
-                    Resend Code
-                  </button>
-                </div>
-              </form>
-
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => setStep('register')}
-                  className="text-sm font-semibold text-gray-600 hover:text-gray-500 transition-colors"
-                >
-                  ← Back to Registration
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -352,6 +189,12 @@ export default function RegisterPage() {
             {errors.general && (
               <div className="mb-4 p-3 bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-xl">
                 <p className="text-red-600 text-sm font-medium text-center">{errors.general}</p>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="mb-4 p-3 bg-green-50/80 backdrop-blur-sm border border-green-200/60 rounded-xl">
+                <p className="text-green-600 text-sm font-medium text-center">{successMessage}</p>
               </div>
             )}
 
