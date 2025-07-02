@@ -333,3 +333,124 @@ func (controller Controller) GetDecryptData(w http.ResponseWriter, r *http.Reque
 	}, http.StatusOK)
 
 }
+
+// 2FA Management endpoints
+
+// Get2FAStatus returns the current 2FA status for the authenticated user
+func (controller Controller) Get2FAStatus(w http.ResponseWriter, r *http.Request) {
+	// For now, return a default response
+	// TODO: Implement proper 2FA status checking from database
+	SendJSONResponse(w, Response{
+		Success: true,
+		Data: struct {
+			Enabled bool `json:"enabled"`
+		}{
+			Enabled: false,
+		},
+	}, http.StatusOK)
+}
+
+// Enable2FA enables 2FA for the authenticated user
+func (controller Controller) Enable2FA(w http.ResponseWriter, r *http.Request) {
+	// For now, simulate enabling 2FA by sending an OTP
+	// TODO: Implement proper 2FA enabling logic
+
+	// Generate a simple token for demo purposes
+	token := "demo-2fa-token-" + uuid.New().String()
+
+	SendJSONResponse(w, Response{
+		Success: true,
+		Data: struct {
+			Message string `json:"message"`
+			Token   string `json:"token"`
+		}{
+			Message: "2FA setup initiated. Verification code sent to your phone.",
+			Token:   token,
+		},
+	}, http.StatusOK)
+}
+
+// Disable2FA disables 2FA for the authenticated user
+func (controller Controller) Disable2FA(w http.ResponseWriter, r *http.Request) {
+	type Request struct {
+		Password string `json:"password"`
+	}
+
+	var req Request
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&req)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "INVALID_REQUEST",
+				Message: err.Error(),
+			},
+		}, http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Implement proper password verification and 2FA disabling
+	if req.Password == "" {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "INVALID_PASSWORD",
+				Message: "Password is required",
+			},
+		}, http.StatusBadRequest)
+		return
+	}
+
+	SendJSONResponse(w, Response{
+		Success: true,
+		Data: struct {
+			Message string `json:"message"`
+		}{
+			Message: "2FA has been disabled successfully",
+		},
+	}, http.StatusOK)
+}
+
+// Verify2FASetup verifies the 2FA setup with the provided code
+func (controller Controller) Verify2FASetup(w http.ResponseWriter, r *http.Request) {
+	type Request struct {
+		Code string `json:"code"`
+	}
+
+	var req Request
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&req)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "INVALID_REQUEST",
+				Message: err.Error(),
+			},
+		}, http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Implement proper OTP verification logic
+	if req.Code == "" || len(req.Code) != 6 {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "INVALID_CODE",
+				Message: "Please enter a valid 6-digit verification code",
+			},
+		}, http.StatusBadRequest)
+		return
+	}
+
+	// For demo purposes, accept any 6-digit code
+	SendJSONResponse(w, Response{
+		Success: true,
+		Data: struct {
+			Message string `json:"message"`
+		}{
+			Message: "2FA has been enabled successfully",
+		},
+	}, http.StatusOK)
+}

@@ -21,6 +21,7 @@ import {
   PlusIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
+import toast from 'react-hot-toast'
 
 const tabs = [
   { name: 'General', icon: CogIcon },
@@ -318,43 +319,83 @@ function Enable2FAModalWrapper() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   // Fetch 2FA status on component mount
   useEffect(() => {
     const fetch2FAStatus = async () => {
-      const response = await authAPI.get2FAStatus()
-      if (response.success) {
-        setIs2FAEnabled(response.data.enabled)
+      try {
+        const response = await authAPI.get2FAStatus()
+        if (response.success) {
+          setIs2FAEnabled(response.data.enabled || false)
+        } else {
+          toast.error('Failed to fetch 2FA status')
+        }
+      } catch (err) {
+        toast.error('Failed to connect to server')
       }
     }
     fetch2FAStatus()
   }, [])
 
-  const handleToggle2FA = async () => {
+  const handleEnable2FA = async () => {
     setLoading(true)
     setError('')
     try {
-      if (!is2FAEnabled) {
-        // Enable 2FA
-        const response = await authAPI.enable2FA()
-        if (response.success) {
-          setModalOpen(true)
-        } else {
-          setError(response.error?.message || 'Failed to enable 2FA')
-        }
+      const loadingToast = toast.loading('Enabling 2FA...')
+      const response = await authAPI.enable2FA()
+      toast.dismiss(loadingToast)
+      
+      if (response.success) {
+        setModalOpen(true)
+        toast.success('2FA setup initiated! Please verify with the code sent to your phone.')
       } else {
-        // Disable 2FA
-        const response = await authAPI.disable2FA(currentPassword)
-        if (response.success) {
-          setIs2FAEnabled(false)
-        } else {
-          setError(response.error?.message || 'Failed to disable 2FA')
-        }
+        toast.error(response.error?.message || 'Failed to enable 2FA')
+        setError(response.error?.message || 'Failed to enable 2FA')
       }
     } catch (err: any) {
+      toast.error('An unexpected error occurred')
       setError(err.message || 'An unexpected error occurred')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDisable2FA = async () => {
+    if (!currentPassword.trim()) {
+      toast.error('Please enter your current password')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    try {
+      const loadingToast = toast.loading('Disabling 2FA...')
+      const response = await authAPI.disable2FA(currentPassword)
+      toast.dismiss(loadingToast)
+      
+      if (response.success) {
+        setIs2FAEnabled(false)
+        setShowPasswordModal(false)
+        setCurrentPassword('')
+        toast.success('2FA has been disabled successfully!')
+      } else {
+        toast.error(response.error?.message || 'Failed to disable 2FA')
+        setError(response.error?.message || 'Failed to disable 2FA')
+      }
+    } catch (err: any) {
+      toast.error('An unexpected error occurred')
+      setError(err.message || 'An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleToggle2FA = async () => {
+    if (!is2FAEnabled) {
+      await handleEnable2FA()
+    } else {
+      setShowPasswordModal(true)
     }
   }
 
@@ -364,29 +405,46 @@ function Enable2FAModalWrapper() {
         {/* Password Section */}
         <PasswordUpdateForm />
         <hr className="my-8 border-gray-200" />
+        
         {/* 2-Step Verification Section */}
         <div>
           <h2 className="text-lg font-bold text-gray-900 mb-6">2 - Step Verification</h2>
-          <div className="flex flex-col space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="block text-base font-medium text-gray-800">Two Step Verification</label>
-                <p className="text-sm text-gray-600 mt-1">
-                  {is2FAEnabled
-                    ? 'Two-step verification is enabled. You will need to enter a verification code when signing in.'
-                    : 'Enable two-step verification for enhanced security.'}
-                </p>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-4">
+                <div className={cn(
+                  "p-3 rounded-full",
+                  is2FAEnabled ? "bg-green-100" : "bg-gray-100"
+                )}>
+                  <ShieldCheckIcon className={cn(
+                    "h-6 w-6",
+                    is2FAEnabled ? "text-green-600" : "text-gray-400"
+                  )} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">
+                    Two-Step Verification
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    {is2FAEnabled
+                      ? 'Your account is protected with two-step verification. You will need to enter a verification code when signing in.'
+                      : 'Add an extra layer of security to your account by enabling two-step verification.'}
+                  </p>
+                  {is2FAEnabled && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                      <span className="text-green-700 font-medium">Active</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              {error && (
-                <div className="text-sm text-red-600 font-medium">{error}</div>
-              )}
               <button
                 className={cn(
-                  'px-8 py-2 font-semibold rounded-lg shadow transition-all duration-200',
+                  'px-6 py-2.5 font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-105',
                   is2FAEnabled
-                    ? 'bg-red-500 hover:bg-red-600 text-white'
-                    : 'bg-brand-green-500 hover:bg-brand-green-600 text-white',
-                  loading && 'opacity-50 cursor-not-allowed'
+                    ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-lg'
+                    : 'bg-gradient-to-r from-brand-green-500 to-brand-green-600 hover:from-brand-green-600 hover:to-brand-green-700 text-white hover:shadow-lg',
+                  loading && 'opacity-50 cursor-not-allowed transform-none'
                 )}
                 onClick={handleToggle2FA}
                 disabled={loading}
@@ -406,16 +464,101 @@ function Enable2FAModalWrapper() {
           </div>
         </div>
       </div>
+
+      {/* Password Confirmation Modal for Disabling 2FA */}
+      <Transition.Root show={showPasswordModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowPasswordModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100"
+            leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-30 transition-opacity" />
+          </Transition.Child>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="mx-auto w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+                <div className="flex items-center justify-center mb-6">
+                  <div className="p-3 bg-red-100 rounded-full">
+                    <ShieldCheckIcon className="h-8 w-8 text-red-600" />
+                  </div>
+                </div>
+                <Dialog.Title className="text-xl font-semibold text-gray-900 text-center mb-2">
+                  Disable Two-Step Verification
+                </Dialog.Title>
+                <p className="text-sm text-gray-600 text-center mb-6">
+                  Enter your current password to disable two-step verification for your account.
+                </p>
+                
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  </div>
+                )}
+
+                <div className="mb-6">
+                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    id="currentPassword"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors duration-200"
+                    placeholder="Enter your current password"
+                  />
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowPasswordModal(false)
+                      setCurrentPassword('')
+                      setError('')
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDisable2FA}
+                    disabled={loading || !currentPassword.trim()}
+                    className={cn(
+                      "flex-1 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200",
+                      (loading || !currentPassword.trim()) && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {loading ? 'Disabling...' : 'Disable 2FA'}
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      {/* Verification Code Modal */}
       <VerificationCodeModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onVerify={async (code) => {
-          const response = await authAPI.verify2FASetup(code)
-          if (response.success) {
-            setIs2FAEnabled(true)
-            setModalOpen(false)
-          } else {
-            return response.error?.message || 'Verification failed'
+          try {
+            const response = await authAPI.verify2FASetup(code)
+            if (response.success) {
+              setIs2FAEnabled(true)
+              setModalOpen(false)
+              toast.success('2FA has been enabled successfully! Your account is now more secure.')
+              return undefined
+            } else {
+              return response.error?.message || 'Verification failed'
+            }
+          } catch (err: any) {
+            return err.message || 'Verification failed'
           }
         }}
       />
@@ -504,9 +647,20 @@ function VerificationCodeModal({
             enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100"
             leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95"
           >
-            <Dialog.Panel className="mx-auto w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl flex flex-col items-center">
-              <CheckCircleIcon className="h-12 w-12 text-brand-green-600 mb-4" />
-              <div className="flex gap-2 mb-4">
+            <Dialog.Panel className="mx-auto w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+              <div className="text-center mb-6">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-r from-green-100 to-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <ShieldCheckIcon className="h-8 w-8 text-green-600" />
+                </div>
+                <Dialog.Title className="text-xl font-semibold text-gray-900 mb-2">
+                  Enter Verification Code
+                </Dialog.Title>
+                <p className="text-gray-600 text-sm">
+                  We've sent a 6-digit verification code to your phone. Please enter it below to complete 2FA setup.
+                </p>
+              </div>
+
+              <div className="flex justify-center gap-3 mb-6">
                 {code.map((digit, idx) => (
                   <input
                     key={idx}
@@ -517,34 +671,46 @@ function VerificationCodeModal({
                     value={digit}
                     onChange={e => handleChange(idx, e.target.value)}
                     onKeyDown={e => handleKeyDown(idx, e)}
-                    className="w-12 h-12 text-center text-2xl border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-all"
+                    className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-all duration-200 hover:border-gray-300"
                   />
                 ))}
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Code</h3>
-              <p className="text-gray-600 text-sm mb-6 text-center">
-                To complete your request, a 6-digit verification code has been sent to your mobile number. Please enter the code to confirm.
-              </p>
+
               {error && (
-                <div className="mb-4 p-3 bg-red-50 rounded-lg w-full">
-                  <p className="text-red-600 text-sm text-center">{error}</p>
+                <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm text-center font-medium">{error}</p>
                 </div>
               )}
-              <div className="flex gap-4">
-                <button
-                  onClick={handleResend}
-                  disabled={resendLoading}
-                  className="px-6 py-2 text-brand-green-600 font-semibold rounded-lg hover:bg-brand-green-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {resendLoading ? 'Resending...' : 'Resend Code'}
-                </button>
+
+              <div className="flex flex-col space-y-3">
                 <button
                   onClick={handleVerify}
                   disabled={verifying || code.some(d => !d)}
-                  className="px-6 py-2 bg-brand-green-500 hover:bg-brand-green-600 text-white font-semibold rounded-lg shadow transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={cn(
+                    "w-full px-6 py-3 bg-gradient-to-r from-brand-green-500 to-brand-green-600 hover:from-brand-green-600 hover:to-brand-green-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-105",
+                    (verifying || code.some(d => !d)) && "opacity-50 cursor-not-allowed transform-none"
+                  )}
                 >
-                  {verifying ? 'Verifying...' : 'Verify'}
+                  {verifying ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <span>Verifying...</span>
+                    </div>
+                  ) : (
+                    'Verify Code'
+                  )}
                 </button>
+
+                <div className="text-center">
+                  <span className="text-sm text-gray-600">Didn't receive the code? </span>
+                  <button
+                    onClick={handleResend}
+                    disabled={resendLoading}
+                    className="text-sm font-semibold text-brand-green-600 hover:text-brand-green-500 transition-colors hover:underline disabled:opacity-50"
+                  >
+                    {resendLoading ? 'Resending...' : 'Resend Code'}
+                  </button>
+                </div>
               </div>
             </Dialog.Panel>
           </Transition.Child>

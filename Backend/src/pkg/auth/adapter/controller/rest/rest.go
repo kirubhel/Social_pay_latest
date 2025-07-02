@@ -132,6 +132,35 @@ func New(log *log.Logger, sm *http.ServeMux, interactor usecase.Interactor, repo
 		}
 	})
 
+	// 2FA Management endpoints
+	sm.HandleFunc("/auth/2fa/status", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			controller.Get2FAStatus(w, r)
+		}
+	})
+
+	sm.HandleFunc("/auth/2fa/enable", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			controller.Enable2FA(w, r)
+		}
+	})
+
+	sm.HandleFunc("/auth/2fa/disable", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			controller.Disable2FA(w, r)
+		}
+	})
+
+	sm.HandleFunc("/auth/2fa/verify-setup", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			controller.Verify2FASetup(w, r)
+		}
+	})
+
 	controller.sm = sm
 	return controller
 }
