@@ -40,16 +40,27 @@ const bottomMenu = [
   { name: 'Settings', href: '/settings', icon: CogIcon },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname()
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+
+  const handleLinkClick = () => {
+    // Close mobile menu when a link is clicked
+    if (onClose) {
+      onClose()
+    }
+  }
 
   return (
     <div className="flex h-full w-64 flex-col bg-gradient-to-b from-white via-gray-50 to-white shadow-xl border-r border-gray-100">
       {/* Enhanced Logo Section */}
       <div className="flex h-20 items-center px-6 border-b border-gray-100 bg-gradient-to-r from-brand-green-50 to-brand-gold-50">
-        <Link href="/" className="flex items-center group">
+        <Link href="/" className="flex items-center group" onClick={handleLinkClick}>
           <div className="relative">
             <Image 
               src="/logo.png" 
@@ -75,6 +86,7 @@ export function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={handleLinkClick}
                 className={cn(
                   'group relative flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200 overflow-hidden',
                   isActive(item.href)
@@ -126,6 +138,7 @@ export function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={handleLinkClick}
                 className={cn(
                   'group relative flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200 overflow-hidden',
                   isActive(item.href)
@@ -173,6 +186,7 @@ export function Sidebar() {
           <Link
             key={item.name}
             href={item.href}
+            onClick={handleLinkClick}
             className={cn(
               'group relative flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200 overflow-hidden',
               isActive(item.href)
