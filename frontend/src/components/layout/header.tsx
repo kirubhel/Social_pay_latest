@@ -366,7 +366,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
                   <Menu.Item>
                     {({ active }) => (
                       <a
-                        href="/settings"
+                        href="/dashboard/settings"
                         className={cn(
                           active ? 'bg-brand-green-50 text-brand-green-700' : 'text-gray-900',
                           'flex items-center gap-x-3 px-4 py-2 text-sm font-medium transition-colors duration-150'
