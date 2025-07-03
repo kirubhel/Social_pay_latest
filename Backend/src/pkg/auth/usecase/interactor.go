@@ -42,6 +42,16 @@ type AuthNInteractor interface {
 	//Permission
 	CheckPermission(userID uuid.UUID, requiredPermission entity.Permission) (bool, error)
 }
+
+type TwoFactorInteractor interface {
+	// Two-Factor Authentication
+	GetTwoFactorStatus(userId uuid.UUID) (*entity.TwoFactorStatus, error)
+	EnableTwoFactor(userId uuid.UUID, phoneNumber string) error
+	VerifyTwoFactorCode(userId uuid.UUID, code string) error
+	DisableTwoFactor(userId uuid.UUID, password string) error
+	SendTwoFactorCode(userId uuid.UUID, phoneNumber string) error
+	CleanupExpiredCodes() error
+}
 type AuthZInteractor interface {
 	// Responsible for access management
 }
@@ -62,6 +72,7 @@ type MgmtInteractor interface {
 	// Find User
 	GetUserByPhoneNumber(phoneId uuid.UUID) (entity.User, error)
 	GetUserById(id uuid.UUID) (*entity.User, error)
+	GetUserWithPhoneById(id uuid.UUID) (*entity.User, error)
 	CreatePasswordIdentity(userId uuid.UUID, password string, hint string) (*entity.PasswordIdentity, error)
 	// GetPasswordIdentityHint(userId uuid.UUID) (string, error)
 }
@@ -70,4 +81,5 @@ type MgmtInteractor interface {
 type Interactor interface {
 	AuthNInteractor
 	MgmtInteractor
+	TwoFactorInteractor
 }

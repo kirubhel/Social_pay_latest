@@ -10,12 +10,14 @@ import { CheckCircleIcon, ShieldCheckIcon, CreditCardIcon, StarIcon } from '@her
 import { authAPI } from '@/lib/api'
 
 export default function LoginPage() {
-  const [step, setStep] = useState<'login' | 'otp'>('login')
+  const [step, setStep] = useState<'login' | 'otp' | '2fa'>('login')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [otpToken, setOtpToken] = useState('')
+  const [twoFACode, setTwoFACode] = useState('')
+  const [twoFAToken, setTwoFAToken] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -61,8 +63,10 @@ export default function LoginPage() {
       })
      
       if (response.success) {
-         if (response.data?.next_step === 'OTP_REQUIRED' || response.data?.next_step === 'CHECK_OTP') {
-         
+        if (response.data?.next_step === '2FA_REQUIRED') {
+          setTwoFAToken(response.data.token)
+          setStep('2fa')
+        } else if (response.data?.next_step === 'OTP_REQUIRED' || response.data?.next_step === 'CHECK_OTP') {
           setOtpToken(response.data.token)
           setStep('otp')
         } else {
@@ -104,7 +108,117 @@ export default function LoginPage() {
     }
   }
 
+  const handle2FASubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!twoFACode.trim()) {
+      setError('Please enter the 2FA verification code')
+      return
+    }
+    setIsLoading(true)
+    try {
+      const response = await authAPI.verify2FALogin(twoFAToken, twoFACode)
+      if (response.success) {
+        await login(response.data.user, response.data.token.active)
+        router.push('/dashboard')
+      } else {
+        setError(response.error?.message || 'Invalid 2FA verification code')
+      }
+    } catch (err: any) {
+      console.error('2FA verification error:', err)
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // UI rendering
+  if (step === '2fa') {
+    return (
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Animated Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-green-50 via-white to-brand-gold-50">
+          <div className="absolute top-0 left-0 w-full h-full">
+            <div className="absolute top-20 left-20 w-64 h-64 bg-brand-green-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+            <div className="absolute top-32 right-20 w-64 h-64 bg-brand-gold-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+            <div className="absolute -bottom-8 left-1/2 w-64 h-64 bg-brand-green-300/10 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+          </div>
+        </div>
+        {/* 2FA Verification Container */}
+        <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-6">
+              <div className="text-center mb-6">
+                <Link href="/" className="inline-block">
+                  <Image
+                    src="/logo.png"
+                    alt="Social Pay Logo"
+                    width={200}
+                    height={10}
+                    className="object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                    priority
+                  />
+                </Link>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">
+                  Two-Factor Authentication
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  We've sent a verification code to your phone
+                </p>
+              </div>
+              {error && (
+                <div className="mb-4 p-3 bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-xl">
+                  <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+                </div>
+              )}
+              <form onSubmit={handle2FASubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="2faCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    2FA Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    id="2faCode"
+                    value={twoFACode}
+                    onChange={(e) => setTwoFACode(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200"
+                    placeholder="Enter 6-digit code"
+                    maxLength={6}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading || !twoFACode.trim()}
+                  className="group w-full bg-gradient-to-r from-brand-green-500 to-brand-gold-400 hover:from-brand-green-600 hover:to-brand-gold-500 text-white font-semibold py-2.5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <span>Verifying...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <span>Verify 2FA</span>
+                      <ArrowRightIcon className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
+                    </div>
+                  )}
+                </button>
+              </form>
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => setStep('login')}
+                  className="text-sm font-semibold text-gray-600 hover:text-gray-500 transition-colors"
+                >
+                  ← Back to Login
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (step === 'otp') {
     return (
       <div className="min-h-screen relative overflow-hidden">

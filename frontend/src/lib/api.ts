@@ -216,6 +216,10 @@ export const authAPI = {
   get2FAStatus: async () => {
     try {
       const response = await apiClient.get('/auth/2fa/status')
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
       return { success: true, data: response.data }
     } catch (error: any) {
       return {
@@ -231,6 +235,10 @@ export const authAPI = {
   enable2FA: async () => {
     try {
       const response = await apiClient.post('/auth/2fa/enable')
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
       return { success: true, data: response.data }
     } catch (error: any) {
       return {
@@ -246,6 +254,10 @@ export const authAPI = {
   disable2FA: async (password: string) => {
     try {
       const response = await apiClient.post('/auth/2fa/disable', { password })
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
       return { success: true, data: response.data }
     } catch (error: any) {
       return {
@@ -261,12 +273,54 @@ export const authAPI = {
   verify2FASetup: async (code: string) => {
     try {
       const response = await apiClient.post('/auth/2fa/verify-setup', { code })
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
       return { success: true, data: response.data }
     } catch (error: any) {
       return {
         success: false,
         error: {
           message: error.response?.data?.message || 'Failed to verify 2FA setup'
+        }
+      }
+    }
+  },
+
+  // Resend 2FA code
+  resend2FACode: async () => {
+    try {
+      const response = await apiClient.post('/auth/2fa/resend')
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to resend 2FA code'
+        }
+      }
+    }
+  },
+
+  // Verify 2FA during login
+  verify2FALogin: async (token: string, code: string) => {
+    try {
+      const response = await apiClient.post('/auth/2fa/verify-login', { token, code })
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to verify 2FA code'
         }
       }
     }

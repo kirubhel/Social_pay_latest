@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -327,7 +328,51 @@ func (controller Controller) LoginWithPhoneAndPassword(w http.ResponseWriter, r 
 		}, http.StatusUnauthorized)
 		return
 	}
-	// 5. Check if 2FA/OTP is enabled (for now, always require OTP if phone auth is not verified)
+	// 5. Check if 2FA is enabled for the user
+	user, err := controller.interactor.GetUserWithPhoneById(phone.Id)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error:   map[string]string{"type": "USER_NOT_FOUND", "message": "User not found"},
+		}, http.StatusNotFound)
+		return
+	}
+
+	// Get 2FA status
+	twoFactorStatus, err := controller.interactor.GetTwoFactorStatus(user.Id)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error:   map[string]string{"type": "FAILED_TO_GET_2FA_STATUS", "message": "Failed to check 2FA status"},
+		}, http.StatusInternalServerError)
+		return
+	}
+
+	// If 2FA is enabled, require 2FA verification
+	if twoFactorStatus.Enabled {
+		// Send 2FA code
+		phoneNumber := fmt.Sprintf("+%s%s", user.Phone.Prefix, user.Phone.Number)
+		err = controller.interactor.SendTwoFactorCode(user.Id, phoneNumber)
+		if err != nil {
+			SendJSONResponse(w, Response{
+				Success: false,
+				Error:   map[string]string{"type": "FAILED_TO_SEND_2FA", "message": "Failed to send 2FA code"},
+			}, http.StatusInternalServerError)
+			return
+		}
+
+		SendJSONResponse(w, Response{
+			Success: true,
+			Data: map[string]interface{}{
+				"next_step": "2FA_REQUIRED",
+				"token":     preSession.Token,
+				"message":   "2FA verification required. Code sent to your phone.",
+			},
+		}, http.StatusAccepted)
+		return
+	}
+
+	// If 2FA is not enabled, check if phone auth is verified
 	err = controller.interactor.CheckPhoneAuth(preSession.Token)
 	if err == nil {
 		// Phone already verified, create session

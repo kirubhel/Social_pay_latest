@@ -60,3 +60,14 @@ func (uc Usecase) CreatePasswordIdentity(userId uuid.UUID, password string, hint
 
 	return &identity, nil
 }
+
+func (uc Usecase) GetUserWithPhoneById(id uuid.UUID) (*entity.User, error) {
+	user, err := uc.repo.FindUserWithPhoneById(id)
+	if err != nil {
+		return nil, Error{
+			Type:    "USER_NOT_FOUND",
+			Message: err.Error(),
+		}
+	}
+	return user, nil
+}

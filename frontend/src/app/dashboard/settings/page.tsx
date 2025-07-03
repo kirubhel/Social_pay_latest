@@ -600,8 +600,10 @@ function VerificationCodeModal({
   const handleResend = async () => {
     setResendLoading(true)
     try {
-      const response = await authAPI.enable2FA()
-      if (!response.success) {
+      const response = await authAPI.resend2FACode()
+      if (response.success) {
+        toast.success('New verification code sent to your phone')
+      } else {
         setError(response.error?.message || 'Failed to resend code')
       }
     } catch (err: any) {

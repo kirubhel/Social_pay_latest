@@ -161,6 +161,20 @@ func New(log *log.Logger, sm *http.ServeMux, interactor usecase.Interactor, repo
 		}
 	})
 
+	sm.HandleFunc("/auth/2fa/verify-login", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			controller.Verify2FALogin(w, r)
+		}
+	})
+
+	sm.HandleFunc("/auth/2fa/resend", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			controller.Resend2FACode(w, r)
+		}
+	})
+
 	controller.sm = sm
 	return controller
 }
