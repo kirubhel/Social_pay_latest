@@ -11,6 +11,7 @@ import { authAPI } from '@/lib/api'
 
 export default function LoginPage() {
   const [step, setStep] = useState<'login' | 'otp' | '2fa'>('login')
+  const [phonePrefix, setPhonePrefix] = useState('251')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -44,6 +45,10 @@ export default function LoginPage() {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!phonePrefix.trim()) {
+      setError('Phone prefix is required')
+      return
+    }
     if (!validatePhoneNumber(phoneNumber)) {
       setError('Phone number must start with 07, 09 (10 digits) or 7, 9 (9 digits)')
       return
@@ -57,20 +62,35 @@ export default function LoginPage() {
       const normalizedPhone = normalizePhoneNumber(phoneNumber).replace(/\s/g, '')
       // Call backend password check API
       const response = await authAPI.login({
-        prefix: '',
+        prefix: phonePrefix,
         number: normalizedPhone,
         password,
       })
      
       if (response.success) {
         if (response.data?.next_step === '2FA_REQUIRED') {
-          setTwoFAToken(response.data.token)
-          setStep('2fa')
+          // User has 2FA enabled, send 2FA code and show 2FA step
+          const user = response.data.user
+          const token = response.data.token
+          
+          const twoFAResponse = await authAPI.send2FACode(token)
+          if (twoFAResponse.success) {
+            setTwoFAToken(token)
+            setStep('2fa')
+          } else {
+            // If 2FA code sending fails, still allow login but show warning
+            console.warn('2FA code sending failed:', twoFAResponse.error)
+            await login(user, token)
+            router.push('/dashboard')
+          }
         } else if (response.data?.next_step === 'OTP_REQUIRED' || response.data?.next_step === 'CHECK_OTP') {
           setOtpToken(response.data.token)
           setStep('otp')
         } else {
-          await login(response.data.user, response.data.token)
+          // Direct login success, no additional verification needed
+          const user = response.data.user
+          const token = response.data.token.active
+          await login(user, token)
           router.push('/dashboard')
         }
       } else {
@@ -95,8 +115,27 @@ export default function LoginPage() {
     try {
       const response = await authAPI.verifyOTP(otpToken, otpCode)
       if (response.success) {
-        await login(response.data.user, response.data.token.active)
-        router.push('/dashboard')
+        const user = response.data.user
+        const token = response.data.token.active
+        
+        // Check if user has 2FA enabled
+        if (user.two_fa_enabled) {
+          // Send 2FA code and show 2FA step
+          const twoFAResponse = await authAPI.send2FACode(token)
+          if (twoFAResponse.success) {
+            setTwoFAToken(token)
+            setStep('2fa')
+          } else {
+            // If 2FA code sending fails, still allow login but show warning
+            console.warn('2FA code sending failed:', twoFAResponse.error)
+            await login(user, token)
+            router.push('/dashboard')
+          }
+        } else {
+          // No 2FA required, proceed to dashboard
+          await login(user, token)
+          router.push('/dashboard')
+        }
       } else {
         setError(response.error?.message || 'Invalid verification code')
       }
@@ -367,8 +406,18 @@ export default function LoginPage() {
                   <div className="flex">
                     <div className="flex items-center px-3 py-2.5 bg-gray-100 border border-r-0 border-gray-200/60 rounded-l-xl">
                       <span className="text-sm mr-1">🇪🇹</span>
-                      <span className="text-xs text-gray-600 font-medium">+251</span>
+                      <span className="text-xs text-gray-600 font-medium">+</span>
                     </div>
+                    <input
+                      type="text"
+                      value={phonePrefix}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 3)
+                        setPhonePrefix(value)
+                      }}
+                      className="w-16 px-2 py-2.5 bg-gray-50 border border-gray-200/60 text-center text-sm font-medium"
+                      placeholder="251"
+                    />
                     <input
                       id="phoneNumber"
                       name="phoneNumber"
@@ -422,7 +471,7 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={isLoading || !phoneNumber || !password}
+                disabled={isLoading || !phonePrefix || !phoneNumber || !password}
                 className="group w-full bg-gradient-to-r from-brand-green-500 to-brand-gold-400 hover:from-brand-green-600 hover:to-brand-gold-500 text-white font-semibold py-2.5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {isLoading ? (

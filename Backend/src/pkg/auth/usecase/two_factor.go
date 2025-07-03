@@ -142,6 +142,51 @@ func (uc Usecase) VerifyTwoFactorCode(userId uuid.UUID, code string) error {
 	return nil
 }
 
+// VerifyTwoFactorLoginCode verifies the 2FA code during login (does not enable 2FA)
+func (uc Usecase) VerifyTwoFactorLoginCode(userId uuid.UUID, code string) error {
+	// Find the verification code
+	twoFactorCode, err := uc.repo.FindTwoFactorCode(userId, code)
+	if err != nil {
+		return TwoFactorError{
+			Type:    "DATABASE_ERROR",
+			Message: "Failed to verify code",
+		}
+	}
+	if twoFactorCode == nil {
+		return TwoFactorError{
+			Type:    "INVALID_CODE",
+			Message: "Invalid or expired verification code",
+		}
+	}
+
+	// Check if code is expired
+	if time.Now().After(twoFactorCode.ExpiresAt) {
+		return TwoFactorError{
+			Type:    "EXPIRED_CODE",
+			Message: "Verification code has expired",
+		}
+	}
+
+	// Check if code is already used
+	if twoFactorCode.Used {
+		return TwoFactorError{
+			Type:    "USED_CODE",
+			Message: "Verification code has already been used",
+		}
+	}
+
+	// Mark code as used
+	err = uc.repo.MarkTwoFactorCodeAsUsed(twoFactorCode.Id)
+	if err != nil {
+		return TwoFactorError{
+			Type:    "DATABASE_ERROR",
+			Message: "Failed to mark code as used",
+		}
+	}
+
+	return nil
+}
+
 // DisableTwoFactor disables 2FA for a user after password verification
 func (uc Usecase) DisableTwoFactor(userId uuid.UUID, password string) error {
 	// Verify user's password first

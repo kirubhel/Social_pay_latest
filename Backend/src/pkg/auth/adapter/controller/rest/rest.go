@@ -168,6 +168,13 @@ func New(log *log.Logger, sm *http.ServeMux, interactor usecase.Interactor, repo
 		}
 	})
 
+	sm.HandleFunc("/auth/2fa/send-login", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			controller.Send2FALogin(w, r)
+		}
+	})
+
 	sm.HandleFunc("/auth/2fa/resend", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:

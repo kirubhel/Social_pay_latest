@@ -38,6 +38,7 @@ type AuthNInteractor interface {
 
 	// Session
 	CreateSession(token string) (*entity.Session, string, error)
+	CreateSessionWithoutPhoneVerification(token string, userId uuid.UUID) (*entity.Session, string, error)
 	CheckSession(token string) (*entity.Session, error)
 	//Permission
 	CheckPermission(userID uuid.UUID, requiredPermission entity.Permission) (bool, error)
@@ -48,6 +49,7 @@ type TwoFactorInteractor interface {
 	GetTwoFactorStatus(userId uuid.UUID) (*entity.TwoFactorStatus, error)
 	EnableTwoFactor(userId uuid.UUID, phoneNumber string) error
 	VerifyTwoFactorCode(userId uuid.UUID, code string) error
+	VerifyTwoFactorLoginCode(userId uuid.UUID, code string) error
 	DisableTwoFactor(userId uuid.UUID, password string) error
 	SendTwoFactorCode(userId uuid.UUID, phoneNumber string) error
 	CleanupExpiredCodes() error

@@ -13,6 +13,7 @@ export default function RegisterPage() {
     title: 'Mr',
     firstName: '',
     lastName: '',
+    phonePrefix: '251',
     phoneNumber: '',
     businessName: '',
     password: '',
@@ -84,6 +85,7 @@ export default function RegisterPage() {
     if (!formData.title.trim()) newErrors.title = 'Title is required'
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required'
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required'
+    if (!formData.phonePrefix.trim()) newErrors.phonePrefix = 'Phone prefix is required'
     if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required'
     if (!formData.businessName.trim()) newErrors.businessName = 'Business name is required'
     if (!formData.password) newErrors.password = 'Password is required'
@@ -123,7 +125,7 @@ export default function RegisterPage() {
         title: formData.title,
         first_name: formData.firstName,
         last_name: formData.lastName,
-        phone_prefix: '',  // Send empty prefix to backend
+        phone_prefix: formData.phonePrefix,
         phone_number: normalizedPhone,
         password: formData.password,
         password_hint: formData.passwordHint,
@@ -265,7 +267,7 @@ export default function RegisterPage() {
                   <div className="flex">
                     <div className="flex items-center px-3 py-2.5 bg-gray-100 border border-r-0 border-gray-200/60 rounded-l-xl">
                       <span className="text-sm mr-1">🇪🇹</span>
-                      <span className="text-xs text-gray-600 font-medium">+251</span>
+                      <span className="text-xs text-gray-600 font-medium">+{formData.phonePrefix}</span>
                     </div>
                     <input
                       id="phoneNumber"

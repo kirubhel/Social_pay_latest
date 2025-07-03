@@ -288,6 +288,25 @@ export const authAPI = {
     }
   },
 
+  // Send 2FA code for login verification
+  send2FACode: async (token: string) => {
+    try {
+      const response = await apiClient.post('/auth/2fa/send-login', { token })
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to send 2FA code'
+        }
+      }
+    }
+  },
+
   // Resend 2FA code
   resend2FACode: async () => {
     try {

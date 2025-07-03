@@ -2,7 +2,6 @@ package rest
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 
@@ -328,35 +327,24 @@ func (controller Controller) LoginWithPhoneAndPassword(w http.ResponseWriter, r 
 		}, http.StatusUnauthorized)
 		return
 	}
-	// 5. Check if 2FA is enabled for the user
-	user, err := controller.interactor.GetUserWithPhoneById(phone.Id)
+	// 5. Get user info to check 2FA status
+	user, err := controller.interactor.GetUserByPhoneNumber(phone.Id)
 	if err != nil {
 		SendJSONResponse(w, Response{
 			Success: false,
-			Error:   map[string]string{"type": "USER_NOT_FOUND", "message": "User not found"},
+			Error:   map[string]string{"type": "USER_NOT_FOUND", "message": "User not found."},
 		}, http.StatusNotFound)
 		return
 	}
 
-	// Get 2FA status
-	twoFactorStatus, err := controller.interactor.GetTwoFactorStatus(user.Id)
-	if err != nil {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error:   map[string]string{"type": "FAILED_TO_GET_2FA_STATUS", "message": "Failed to check 2FA status"},
-		}, http.StatusInternalServerError)
-		return
-	}
-
-	// If 2FA is enabled, require 2FA verification
-	if twoFactorStatus.Enabled {
-		// Send 2FA code
-		phoneNumber := fmt.Sprintf("+%s%s", user.Phone.Prefix, user.Phone.Number)
-		err = controller.interactor.SendTwoFactorCode(user.Id, phoneNumber)
+	// 6. Check if user has 2FA enabled
+	if user.TwoFactorEnabled {
+		// User has 2FA enabled, create session and require 2FA verification
+		session, at, err := controller.interactor.CreateSessionWithoutPhoneVerification(preSession.Token, user.Id)
 		if err != nil {
 			SendJSONResponse(w, Response{
 				Success: false,
-				Error:   map[string]string{"type": "FAILED_TO_SEND_2FA", "message": "Failed to send 2FA code"},
+				Error:   map[string]string{"type": "FAILED_TO_CREATE_SESSION", "message": err.Error()},
 			}, http.StatusInternalServerError)
 			return
 		}
@@ -365,45 +353,45 @@ func (controller Controller) LoginWithPhoneAndPassword(w http.ResponseWriter, r 
 			Success: true,
 			Data: map[string]interface{}{
 				"next_step": "2FA_REQUIRED",
-				"token":     preSession.Token,
-				"message":   "2FA verification required. Code sent to your phone.",
+				"token":     at,
+				"user": map[string]interface{}{
+					"id":             session.User.Id,
+					"first_name":     session.User.FirstName,
+					"last_name":      session.User.LastName,
+					"user_type":      session.User.UserType,
+					"two_fa_enabled": true,
+				},
 			},
 		}, http.StatusAccepted)
 		return
 	}
 
-	// If 2FA is not enabled, check if phone auth is verified
-	err = controller.interactor.CheckPhoneAuth(preSession.Token)
-	if err == nil {
-		// Phone already verified, create session
-		session, at, err := controller.interactor.CreateSession(preSession.Token)
-		if err != nil {
-			SendJSONResponse(w, Response{
-				Success: false,
-				Error:   map[string]string{"type": "FAILED_TO_CREATE_SESSION", "message": err.Error()},
-			}, http.StatusInternalServerError)
-			return
-		}
+	// 7. User doesn't have 2FA enabled, create session directly
+	// For users without 2FA, we need to create a session without phone verification
+	// First, let's manually create the session components
+
+	// Create session manually for users without 2FA
+	// We'll use the existing user variable from step 5
+	session, at, err := controller.interactor.CreateSessionWithoutPhoneVerification(preSession.Token, user.Id)
+	if err != nil {
 		SendJSONResponse(w, Response{
-			Success: true,
-			Data: map[string]interface{}{
-				"token": map[string]string{"active": at, "refresh": session.Token},
-				"user": map[string]interface{}{
-					"id":         session.User.Id,
-					"first_name": session.User.FirstName,
-					"last_name":  session.User.LastName,
-					"user_type":  session.User.UserType,
-				},
-			},
-		}, http.StatusOK)
+			Success: false,
+			Error:   map[string]string{"type": "FAILED_TO_CREATE_SESSION", "message": err.Error()},
+		}, http.StatusInternalServerError)
 		return
 	}
-	// If phone not verified, require OTP
+
 	SendJSONResponse(w, Response{
 		Success: true,
 		Data: map[string]interface{}{
-			"next_step": "OTP_REQUIRED",
-			"token":     preSession.Token,
+			"token": map[string]string{"active": at, "refresh": session.Token},
+			"user": map[string]interface{}{
+				"id":             session.User.Id,
+				"first_name":     session.User.FirstName,
+				"last_name":      session.User.LastName,
+				"user_type":      session.User.UserType,
+				"two_fa_enabled": false,
+			},
 		},
-	}, http.StatusAccepted)
+	}, http.StatusOK)
 }

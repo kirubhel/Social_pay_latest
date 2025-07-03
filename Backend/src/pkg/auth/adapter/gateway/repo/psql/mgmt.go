@@ -44,13 +44,15 @@ func (repo PsqlRepo) FindUserUsingPhoneIdentity(phoneId uuid.UUID) (*entity.User
 	var lastName sql.NullString
 	var userType sql.NullString // Add variable for user_type
 
+	var twoFactorVerifiedAt sql.NullTime
+
 	err := repo.db.QueryRow(fmt.Sprintf(`
-	SELECT users.id, users.sir_name, users.first_name, users.last_name, users.user_type
+	SELECT users.id, users.sir_name, users.first_name, users.last_name, users.user_type, users.two_factor_enabled, users.two_factor_verified_at
 	FROM %s.phone_identities
 	INNER JOIN %s.users ON %s.users.id = phone_identities.user_id
 	WHERE phone_id = $1;
 	`, repo.schema, repo.schema, repo.schema), phoneId).Scan(
-		&user.Id, &sirName, &user.FirstName, &lastName, &userType,
+		&user.Id, &sirName, &user.FirstName, &lastName, &userType, &user.TwoFactorEnabled, &twoFactorVerifiedAt,
 	)
 
 	if sirName.Valid {
@@ -65,6 +67,10 @@ func (repo PsqlRepo) FindUserUsingPhoneIdentity(phoneId uuid.UUID) (*entity.User
 		user.UserType = userType.String // Set the user_type if valid
 	} else {
 		user.UserType = "UNKNOWN" // Default value if user_type is not found
+	}
+
+	if twoFactorVerifiedAt.Valid {
+		user.TwoFactorVerifiedAt = &twoFactorVerifiedAt.Time
 	}
 
 	if err != nil {

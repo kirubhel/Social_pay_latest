@@ -648,6 +648,90 @@ func (controller Controller) Verify2FASetup(w http.ResponseWriter, r *http.Reque
 	}, http.StatusOK)
 }
 
+// Send2FALogin sends a 2FA code for login verification
+func (controller Controller) Send2FALogin(w http.ResponseWriter, r *http.Request) {
+	type Request struct {
+		Token string `json:"token"`
+	}
+
+	var req Request
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&req)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "INVALID_REQUEST",
+				Message: err.Error(),
+			},
+		}, http.StatusBadRequest)
+		return
+	}
+
+	// Get session to find user ID
+	session, err := controller.interactor.CheckSession(req.Token)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "INVALID_TOKEN",
+				Message: "Invalid or expired token",
+			},
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	// Get user's phone number
+	user, err := controller.interactor.GetUserWithPhoneById(session.User.Id)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "USER_NOT_FOUND",
+				Message: "User not found",
+			},
+		}, http.StatusNotFound)
+		return
+	}
+
+	// Check if user has a phone number
+	if user.Phone.Prefix == "" || user.Phone.Number == "" {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "PHONE_NOT_FOUND",
+				Message: "Phone number not found for user",
+			},
+		}, http.StatusNotFound)
+		return
+	}
+
+	// Format phone number for SMS
+	phoneNumber := fmt.Sprintf("+%s%s", user.Phone.Prefix, user.Phone.Number)
+
+	// Send verification code
+	err = controller.interactor.SendTwoFactorCode(session.User.Id, phoneNumber)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: Error{
+				Type:    "SEND_CODE_FAILED",
+				Message: err.Error(),
+			},
+		}, http.StatusInternalServerError)
+		return
+	}
+
+	SendJSONResponse(w, Response{
+		Success: true,
+		Data: struct {
+			Message string `json:"message"`
+		}{
+			Message: "2FA verification code sent to your phone",
+		},
+	}, http.StatusOK)
+}
+
 // Verify2FALogin verifies 2FA code during login
 func (controller Controller) Verify2FALogin(w http.ResponseWriter, r *http.Request) {
 	type Request struct {
@@ -693,8 +777,8 @@ func (controller Controller) Verify2FALogin(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Verify the 2FA code
-	err = controller.interactor.VerifyTwoFactorCode(session.User.Id, req.Code)
+	// Verify the 2FA code for login
+	err = controller.interactor.VerifyTwoFactorLoginCode(session.User.Id, req.Code)
 	if err != nil {
 		SendJSONResponse(w, Response{
 			Success: false,
@@ -706,23 +790,12 @@ func (controller Controller) Verify2FALogin(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Create session after successful 2FA verification
-	session, at, err := controller.interactor.CreateSession(req.Token)
-	if err != nil {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: Error{
-				Type:    "FAILED_TO_CREATE_SESSION",
-				Message: "Failed to create session after 2FA verification",
-			},
-		}, http.StatusInternalServerError)
-		return
-	}
-
+	// After successful 2FA verification, return the existing session tokens
+	// The session was already created during the initial login, we just need to return it
 	SendJSONResponse(w, Response{
 		Success: true,
 		Data: map[string]interface{}{
-			"token": map[string]string{"active": at, "refresh": session.Token},
+			"token": map[string]string{"active": req.Token, "refresh": req.Token},
 			"user": map[string]interface{}{
 				"id":         session.User.Id,
 				"first_name": session.User.FirstName,
