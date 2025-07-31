@@ -144,12 +144,9 @@ func (repo PsqlRepo) UpdatePasswordIdentity(password string, userId uuid.UUID) e
 	fmt.Println("|||||||||||| 0000 ", userId)
 
 	_, err := repo.db.Exec(fmt.Sprintf(`
-	
-
 	UPDATE %s.password_identities
-		SET finger_password = CASE WHEN $1 <> '' THEN $1 ELSE finger_password END
+		SET password = $1, updated_at = NOW()
 		WHERE user_id = $2;
-
 	`, repo.schema), password, userId)
 
 	return err

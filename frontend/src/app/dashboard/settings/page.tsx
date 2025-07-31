@@ -4,6 +4,7 @@ import { useState, useRef, Fragment, useEffect } from 'react'
 import { Tab, Dialog, Transition } from '@headlessui/react'
 import { cn } from '@/lib/utils'
 import { authAPI } from '@/lib/api'
+import { InputField, TextareaField, FileUpload } from '@/components/ui'
 import {
   UserCircleIcon,
   ShieldCheckIcon,
@@ -38,16 +39,16 @@ export default function SettingsPage() {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-2 text-gray-600">
+    <div className="max-w-6xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+        <p className="mt-1 text-sm text-gray-600">
           Manage your account settings and preferences
         </p>
       </div>
 
       <Tab.Group selectedIndex={selectedIndex} onChange={setSelectedIndex}>
-        <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 p-1 mb-8 overflow-x-auto">
+        <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 p-1 mb-6 overflow-x-auto">
           {tabs.map((tab, index) => (
             <Tab
               key={tab.name}
@@ -70,42 +71,42 @@ export default function SettingsPage() {
 
         <Tab.Panels>
           {/* General Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <GeneralSettings />
           </Tab.Panel>
 
           {/* Security Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <Enable2FAModalWrapper />
           </Tab.Panel>
 
           {/* API Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <ApiKeysPanel />
           </Tab.Panel>
 
           {/* Webhooks Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <WebhooksPanel />
           </Tab.Panel>
 
           {/* Teams Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <TeamsPanel />
           </Tab.Panel>
 
           {/* Compliance Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <ComingSoon tabName="Compliance" />
           </Tab.Panel>
 
           {/* Account Settings Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <AccountSettingsPanel />
           </Tab.Panel>
 
           {/* Whitelisted IPs Tab */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+          <Tab.Panel className="rounded-xl bg-white p-5 shadow-md border border-gray-100">
             <ComingSoon tabName="Whitelisted IPs" />
           </Tab.Panel>
         </Tab.Panels>
@@ -136,9 +137,9 @@ function ComingSoon({ tabName }: { tabName: string }) {
 
 function GeneralSettings() {
   const [formData, setFormData] = useState({
-    userName: 'Henok Kebede',
-    emailAddress: 'example@gmail.com',
-    phoneNumber: '+251 912345678',
+    userName: '',
+    emailAddress: '',
+    phoneNumber: '',
     businessName: '',
     businessEmail: '',
     businessPhone: '',
@@ -146,6 +147,59 @@ function GeneralSettings() {
     website: '',
     businessLogo: null as File | null
   })
+
+  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [merchantId, setMerchantId] = useState('')
+
+  // Fetch initial data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch user profile
+        const userResponse = await authAPI.getUserProfile()
+        if (userResponse.success && userResponse.data?.data) {
+          const user = userResponse.data.data
+          setFormData(prev => ({
+            ...prev,
+            userName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+            emailAddress: user.email || '',
+            phoneNumber: user.phone_number || ''
+          }))
+        }
+
+        // Fetch merchant details
+        const merchantResponse = await authAPI.getMerchantDetails()
+        if (merchantResponse.success) {
+          if (merchantResponse.data?.data) {
+            // Merchant profile exists
+            const merchant = merchantResponse.data.data
+            setMerchantId(merchant.id || '')
+            setFormData(prev => ({
+              ...prev,
+              businessName: merchant.legal_name || merchant.trading_name || '',
+              businessEmail: merchant.address?.email || '',
+              businessPhone: merchant.address?.phone_number || '',
+              businessAddress: `${merchant.address?.region || ''} ${merchant.address?.city || ''} ${merchant.address?.sub_city || ''}`.trim(),
+              website: merchant.website_url || ''
+            }))
+          } else {
+            // No merchant profile exists yet - this is normal for new users
+            console.log('No merchant profile found - user can create one in settings')
+          }
+        } else {
+          console.error('Failed to fetch merchant details:', merchantResponse.error?.message)
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
+        toast.error('Failed to load settings data')
+      } finally {
+        setInitialLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -156,9 +210,85 @@ function GeneralSettings() {
     setFormData(prev => ({ ...prev, businessLogo: file }))
   }
 
-  const handleSaveChanges = () => {
-    console.log('Saving changes:', formData)
-    // TODO: Implement save functionality
+  const handleSaveChanges = async () => {
+    setLoading(true)
+    
+    try {
+      // Parse user name into first and last name
+      const nameParts = formData.userName.split(' ')
+      const firstName = nameParts[0] || ''
+      const lastName = nameParts.slice(1).join(' ') || ''
+
+      // Update user profile
+      const userResponse = await authAPI.updateUserProfile({
+        first_name: firstName,
+        last_name: lastName,
+        phone_number: formData.phoneNumber
+      })
+
+      if (!userResponse.success) {
+        toast.error(userResponse.error?.message || 'Failed to update user profile')
+        return
+      }
+
+      // Update merchant details
+      if (merchantId) {
+        const merchantResponse = await authAPI.updateMerchantDetails({
+          merchant_id: merchantId,
+          merchant: {
+            legal_name: formData.businessName,
+            website_url: formData.website
+          },
+          address: {
+            email: formData.businessEmail,
+            phone_number: formData.businessPhone,
+            personal_name: formData.businessName,
+            region: formData.businessAddress.split(' ')[0] || '',
+            city: formData.businessAddress.split(' ')[1] || '',
+            sub_city: formData.businessAddress.split(' ').slice(2).join(' ') || ''
+          }
+        })
+
+        if (!merchantResponse.success) {
+          toast.error(merchantResponse.error?.message || 'Failed to update business information')
+          return
+        }
+      } else {
+        // No merchant profile exists yet - create one
+        const createMerchantResponse = await authAPI.createMerchant({
+          legal_name: formData.businessName,
+          website_url: formData.website,
+          address: {
+            email: formData.businessEmail,
+            phone_number: formData.businessPhone,
+            personal_name: formData.businessName,
+            region: formData.businessAddress.split(' ')[0] || '',
+            city: formData.businessAddress.split(' ')[1] || '',
+            sub_city: formData.businessAddress.split(' ').slice(2).join(' ') || ''
+          }
+        })
+
+        if (!createMerchantResponse.success) {
+          toast.error(createMerchantResponse.error?.message || 'Failed to create business profile')
+          return
+        }
+      }
+
+      toast.success('Settings updated successfully!')
+    } catch (error) {
+      console.error('Failed to save changes:', error)
+      toast.error('Failed to save changes')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-green-500"></div>
+      </div>
+    )
   }
 
   return (
@@ -167,40 +297,30 @@ function GeneralSettings() {
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-6">User Information</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="userName" className="block text-sm font-medium text-gray-700 mb-2">
-              User Name
-            </label>
-            <input
-              type="text"
-              id="userName"
-              value={formData.userName}
-              onChange={(e) => handleInputChange('userName', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200"
-            />
-          </div>
-          <div>
-            <label htmlFor="emailAddress" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="emailAddress"
-              value={formData.emailAddress}
-              onChange={(e) => handleInputChange('emailAddress', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200"
-            />
-          </div>
+          <InputField
+            label="User Name"
+            type="text"
+            value={formData.userName}
+            onChange={(value) => handleInputChange('userName', value)}
+            id="userName"
+            required
+          />
+          <InputField
+            label="Email Address"
+            type="email"
+            value={formData.emailAddress}
+            onChange={(value) => handleInputChange('emailAddress', value)}
+            id="emailAddress"
+            required
+          />
           <div className="md:col-span-2">
-            <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number
-            </label>
-            <input
+            <InputField
+              label="Phone Number"
               type="tel"
-              id="phoneNumber"
               value={formData.phoneNumber}
-              onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200"
+              onChange={(value) => handleInputChange('phoneNumber', value)}
+              id="phoneNumber"
+              required
             />
           </div>
         </div>
@@ -210,93 +330,54 @@ function GeneralSettings() {
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Business Information</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-2">
-              Business Name
-            </label>
-            <input
-              type="text"
-              id="businessName"
-              value={formData.businessName}
-              onChange={(e) => handleInputChange('businessName', e.target.value)}
-              placeholder="Your Business Name"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label htmlFor="businessEmail" className="block text-sm font-medium text-gray-700 mb-2">
-              Business Email
-            </label>
-            <input
-              type="email"
-              id="businessEmail"
-              value={formData.businessEmail}
-              onChange={(e) => handleInputChange('businessEmail', e.target.value)}
-              placeholder="Your Business Email Address"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label htmlFor="businessPhone" className="block text-sm font-medium text-gray-700 mb-2">
-              Business Phone Number
-            </label>
-            <input
-              type="tel"
-              id="businessPhone"
-              value={formData.businessPhone}
-              onChange={(e) => handleInputChange('businessPhone', e.target.value)}
-              placeholder="Your Phone Number"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label htmlFor="businessAddress" className="block text-sm font-medium text-gray-700 mb-2">
-              Business Address
-            </label>
-            <input
-              type="text"
-              id="businessAddress"
-              value={formData.businessAddress}
-              onChange={(e) => handleInputChange('businessAddress', e.target.value)}
-              placeholder="Your Business Address"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2">
-              Website
-            </label>
-            <input
-              type="url"
-              id="website"
-              value={formData.website}
-              onChange={(e) => handleInputChange('website', e.target.value)}
-              placeholder="Your Website Name"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label htmlFor="businessLogo" className="block text-sm font-medium text-gray-700 mb-2">
-              Business Logo
-            </label>
-            <div className="flex items-center gap-4">
-              <label htmlFor="businessLogo" className="cursor-pointer">
-                <div className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200 text-center">
-                  Choose File
-                </div>
-                <input
-                  type="file"
-                  id="businessLogo"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-              <span className="text-sm text-gray-500">
-                {formData.businessLogo ? formData.businessLogo.name : 'No File Chosen'}
-              </span>
-            </div>
-          </div>
+          <InputField
+            label="Business Name"
+            type="text"
+            value={formData.businessName}
+            onChange={(value) => handleInputChange('businessName', value)}
+            placeholder="Your Business Name"
+            id="businessName"
+          />
+          <InputField
+            label="Business Email"
+            type="email"
+            value={formData.businessEmail}
+            onChange={(value) => handleInputChange('businessEmail', value)}
+            placeholder="Your Business Email Address"
+            id="businessEmail"
+          />
+          <InputField
+            label="Business Phone Number"
+            type="tel"
+            value={formData.businessPhone}
+            onChange={(value) => handleInputChange('businessPhone', value)}
+            placeholder="Your Phone Number"
+            id="businessPhone"
+          />
+          <InputField
+            label="Business Address"
+            type="text"
+            value={formData.businessAddress}
+            onChange={(value) => handleInputChange('businessAddress', value)}
+            placeholder="Your Business Address"
+            id="businessAddress"
+          />
+          <InputField
+            label="Website"
+            type="url"
+            value={formData.website}
+            onChange={(value) => handleInputChange('website', value)}
+            placeholder="Your Website Name"
+            id="website"
+          />
+          <FileUpload
+            label="Business Logo"
+            value={formData.businessLogo}
+            onChange={(file) => setFormData(prev => ({ ...prev, businessLogo: file }))}
+            accept="image/*"
+            maxSize={5}
+            id="businessLogo"
+          />
         </div>
       </div>
 
@@ -304,9 +385,10 @@ function GeneralSettings() {
       <div className="flex justify-start pt-6 border-t border-gray-200">
         <button
           onClick={handleSaveChanges}
-          className="px-8 py-3 bg-gradient-to-r from-brand-green-500 to-brand-green-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-green-500 focus:ring-offset-2"
+          disabled={loading}
+          className="px-8 py-3 bg-gradient-to-r from-brand-green-500 to-brand-green-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-green-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
         >
-          Save Changes
+          {loading ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
     </div>
@@ -726,116 +808,183 @@ function PasswordUpdateForm() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showCurrent, setShowCurrent] = useState(false)
-  const [showNew, setShowNew] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState('')
-  const [error, setError] = useState('')
+
+  // Password policy validation
+  const passwordPolicy = {
+    minLength: 8,
+    hasUpperCase: /[A-Z]/.test(newPassword),
+    hasLowerCase: /[a-z]/.test(newPassword),
+    hasNumbers: /\d/.test(newPassword),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
+  }
+
+  const passwordStrength = [
+    passwordPolicy.hasUpperCase,
+    passwordPolicy.hasLowerCase,
+    passwordPolicy.hasNumbers,
+    passwordPolicy.hasSpecialChar,
+    newPassword.length >= passwordPolicy.minLength
+  ].filter(Boolean).length
+
+  const getPasswordStrengthColor = () => {
+    if (passwordStrength <= 2) return 'bg-red-500'
+    if (passwordStrength <= 3) return 'bg-yellow-500'
+    if (passwordStrength <= 4) return 'bg-blue-500'
+    return 'bg-green-500'
+  }
+
+  const getPasswordStrengthText = () => {
+    if (passwordStrength <= 2) return 'Weak'
+    if (passwordStrength <= 3) return 'Fair'
+    if (passwordStrength <= 4) return 'Good'
+    return 'Strong'
+  }
 
   const validate = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('All fields are required.')
+      toast.error('All fields are required.')
+      return false
+    }
+    if (newPassword.length < passwordPolicy.minLength) {
+      toast.error(`Password must be at least ${passwordPolicy.minLength} characters long.`)
+      return false
+    }
+    if (!passwordPolicy.hasUpperCase) {
+      toast.error('Password must contain at least one uppercase letter.')
+      return false
+    }
+    if (!passwordPolicy.hasLowerCase) {
+      toast.error('Password must contain at least one lowercase letter.')
+      return false
+    }
+    if (!passwordPolicy.hasNumbers) {
+      toast.error('Password must contain at least one number.')
+      return false
+    }
+    if (!passwordPolicy.hasSpecialChar) {
+      toast.error('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>).')
       return false
     }
     if (newPassword !== confirmPassword) {
-      setError('New password and confirmation do not match.')
+      toast.error('New password and confirmation do not match.')
       return false
     }
     if (newPassword === currentPassword) {
-      setError('New password must be different from current password.')
+      toast.error('New password must be different from current password.')
       return false
     }
-    setError('')
     return true
   }
 
   const handleUpdate = async () => {
-    setSuccess('')
     if (!validate()) return
     setLoading(true)
-    setError('')
-    // Mock API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    // Simulate success
-    setLoading(false)
-    setSuccess('Password updated successfully!')
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
+    
+    const loadingToast = toast.loading('Updating password...')
+    
+    try {
+      const response = await authAPI.updatePassword(currentPassword, newPassword)
+      toast.dismiss(loadingToast)
+      
+      if (response.success) {
+        toast.success('Password updated successfully!')
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        toast.error(response.error?.message || 'Failed to update password')
+      }
+    } catch (error: any) {
+      toast.dismiss(loadingToast)
+      toast.error(error.message || 'An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="mb-10">
-      <h2 className="text-lg font-bold text-gray-900 mb-6">Password</h2>
-      <div className="mb-6 space-y-6">
+    <div className="mb-8">
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Password</h2>
+      <div className="mb-4 space-y-4">
+        <InputField
+          label="Current Password"
+          type="password"
+          value={currentPassword}
+          onChange={setCurrentPassword}
+          autoComplete="current-password"
+          required
+        />
         <div>
-          <label className="block text-base font-medium text-gray-800 mb-2">Current Password</label>
-          <div className="relative">
-            <input
-              type={showCurrent ? 'text' : 'password'}
-              value={currentPassword}
-              onChange={e => setCurrentPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 pr-12"
-              autoComplete="current-password"
-            />
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-              onClick={() => setShowCurrent(v => !v)}
-              tabIndex={-1}
-            >
-              {showCurrent ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-            </button>
-          </div>
+          <InputField
+            label="New Password"
+            type="password"
+            value={newPassword}
+            onChange={setNewPassword}
+            autoComplete="new-password"
+            required
+          />
+          
+          {/* Password Strength Indicator */}
+          {newPassword && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-gray-600">Password Strength:</span>
+                <span className={`text-xs font-medium ${getPasswordStrengthColor().replace('bg-', 'text-')}`}>
+                  {getPasswordStrengthText()}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div 
+                  className={`h-1.5 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}
+                  style={{ width: `${(passwordStrength / 5) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Password Policy Requirements */}
+          {newPassword && (
+            <div className="mt-2 space-y-0.5">
+              <p className="text-xs font-medium text-gray-700 mb-1.5">Password Requirements:</p>
+              <div className="grid grid-cols-1 gap-0.5 text-xs">
+                <div className={`flex items-center ${newPassword.length >= passwordPolicy.minLength ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${newPassword.length >= passwordPolicy.minLength ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                  At least {passwordPolicy.minLength} characters
+                </div>
+                <div className={`flex items-center ${passwordPolicy.hasUpperCase ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${passwordPolicy.hasUpperCase ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                  One uppercase letter (A-Z)
+                </div>
+                <div className={`flex items-center ${passwordPolicy.hasLowerCase ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${passwordPolicy.hasLowerCase ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                  One lowercase letter (a-z)
+                </div>
+                <div className={`flex items-center ${passwordPolicy.hasNumbers ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${passwordPolicy.hasNumbers ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                  One number (0-9)
+                </div>
+                <div className={`flex items-center ${passwordPolicy.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${passwordPolicy.hasSpecialChar ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                  One special character (!@#$%^&*(),.?":{}|&lt;&gt;)
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <div>
-          <label className="block text-base font-medium text-gray-800 mb-2">New Password</label>
-          <div className="relative">
-            <input
-              type={showNew ? 'text' : 'password'}
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 pr-12"
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-              onClick={() => setShowNew(v => !v)}
-              tabIndex={-1}
-            >
-              {showNew ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-        <div>
-          <label className="block text-base font-medium text-gray-800 mb-2">Confirm Password</label>
-          <div className="relative">
-            <input
-              type={showConfirm ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-brand-green-500 transition-colors duration-200 pr-12"
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-              onClick={() => setShowConfirm(v => !v)}
-              tabIndex={-1}
-            >
-              {showConfirm ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-        {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
-        {success && <div className="text-green-600 text-sm mt-2">{success}</div>}
+        <InputField
+          label="Confirm Password"
+          type="password"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          autoComplete="new-password"
+          required
+        />
       </div>
       <button
         onClick={handleUpdate}
         disabled={loading}
-        className="mt-2 px-8 py-2 bg-brand-green-600 hover:bg-brand-green-700 text-white font-semibold rounded-lg shadow transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="mt-3 px-6 py-2.5 bg-brand-green-600 hover:bg-brand-green-700 text-white font-medium rounded-md shadow-sm transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? 'Updating...' : 'Update Password'}
       </button>
@@ -1360,13 +1509,15 @@ function AccountSettingsPanel() {
         </div>
         {/* Cards */}
         <div className="flex items-center gap-4 mb-2">
-          <label className="block text-sm font-medium text-gray-700">Cards</label>
-          <input
-            type="checkbox"
-            checked={cardsEnabled}
-            onChange={e => setCardsEnabled(e.target.checked)}
-            className="rounded border-gray-300 text-brand-green-600 focus:ring-brand-green-500 h-5 w-5"
-          />
+          <label className="flex items-center gap-2 text-gray-700 text-sm">
+            <input
+              type="checkbox"
+              checked={cardsEnabled}
+              onChange={e => setCardsEnabled(e.target.checked)}
+              className="rounded border-gray-300 text-brand-green-600 focus:ring-brand-green-500 h-5 w-5"
+            />
+            Cards
+          </label>
         </div>
       </section>
 

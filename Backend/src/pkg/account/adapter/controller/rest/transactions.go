@@ -50,13 +50,36 @@ func NewTransactionFromEntity(i entity.Transaction) Transaction {
 }
 
 func (controller Controller) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	// Authentication
+	if len(strings.Split(r.Header.Get("Authorization"), " ")) != 2 {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: &Error{
+				Type:    "UNAUTHORIZED",
+				Message: "Please provide an authentication token in header",
+			},
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	token := strings.Split(r.Header.Get("Authorization"), " ")[1]
+	session, err := controller.auth.GetCheckAuth(token)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: &Error{
+				Type:    "AUTHENTICATION_ERROR",
+				Message: "Invalid token or session",
+			},
+		}, http.StatusUnauthorized)
+		return
+	}
 
 	var user entity.User2
 	decoder := json.NewDecoder((r.Body))
-	err := decoder.Decode(&user)
+	err = decoder.Decode(&user)
 
 	if err != nil {
-
 		SendJSONResponse(w, Response{
 			Success: false,
 			Error: &Error{
@@ -65,27 +88,27 @@ func (controller Controller) UpdateUser(w http.ResponseWriter, r *http.Request) 
 			},
 		}, http.StatusBadRequest)
 		return
-
 	}
+
+	// Set the user ID from the session
+	user.Id = session.User.Id
 
 	users, err := controller.interactor.UpdateUserUsecase(user)
 	if err != nil {
-
 		SendJSONResponse(w, Response{
 			Success: false,
 			Error: &Error{
-				Type:    "INVALID_REQUEST",
+				Type:    "UPDATE_ERROR",
 				Message: err.Error(),
 			},
 		}, http.StatusBadRequest)
 		return
-
 	}
+
 	SendJSONResponse(w, Response{
 		Success: true,
 		Data:    users,
 	}, http.StatusOK)
-
 }
 
 func (controller Controller) GetVerifyTransactionHosted(w http.ResponseWriter, r *http.Request) {
@@ -3207,4 +3230,48 @@ func (controller Controller) GetstorePublicKeyHandler(w http.ResponseWriter, r *
 		Data:    token2,
 	}, http.StatusOK)
 
+}
+
+func (controller Controller) GetUserProfile(w http.ResponseWriter, r *http.Request) {
+	// Authentication
+	if len(strings.Split(r.Header.Get("Authorization"), " ")) != 2 {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: &Error{
+				Type:    "UNAUTHORIZED",
+				Message: "Please provide an authentication token in header",
+			},
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	token := strings.Split(r.Header.Get("Authorization"), " ")[1]
+	session, err := controller.auth.GetCheckAuth(token)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: &Error{
+				Type:    "AUTHENTICATION_ERROR",
+				Message: "Invalid token or session",
+			},
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	user, err := controller.interactor.GetUserProfile(session.User.Id)
+	if err != nil {
+		SendJSONResponse(w, Response{
+			Success: false,
+			Error: &Error{
+				Type:    "FETCH_ERROR",
+				Message: err.Error(),
+			},
+		}, http.StatusBadRequest)
+		return
+	}
+
+	SendJSONResponse(w, Response{
+		Success: true,
+		Data:    user,
+	}, http.StatusOK)
 }

@@ -45,6 +45,14 @@ func (uc Usecase) UpdateUserUsecase(users entity.User2) (entity.User2, error) {
 	return users, err
 }
 
+func (uc Usecase) GetUserProfile(userID uuid.UUID) (entity.User2, error) {
+	user, err := uc.repo.GetUserProfile(userID)
+	if err != nil {
+		return entity.User2{}, err
+	}
+	return user, nil
+}
+
 func (uc Usecase) InitPreSession(txtId uuid.UUID) (entity.TransactionSession, error) {
 
 	uc.log.SetPrefix("[AUTH] [USECASE] [InitPreSession] ")

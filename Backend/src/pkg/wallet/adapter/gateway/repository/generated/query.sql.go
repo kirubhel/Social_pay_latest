@@ -28,12 +28,13 @@ type CreateMerchantWalletParams struct {
 	Currency     string    `json:"currency"`
 }
 
-// @param id uuid
-// @param user_id uuid
-// @param merchant_id uuid
-// @param amount numeric
-// @param locked_amount numeric
-// @param currency text
+// @Param id path string true "ID (UUID)"
+// @Param user_id path string true "User ID (UUID)"
+// @Param merchant_id path string true "Merchant ID (UUID)"
+// @Param amount query number true "Amount"
+// @Param locked_amount query number false "Locked Amount"
+// @Param currency query string true "Currency code"
+
 func (q *Queries) CreateMerchantWallet(ctx context.Context, arg CreateMerchantWalletParams) error {
 	_, err := q.exec(ctx, q.createMerchantWalletStmt, createMerchantWallet,
 		arg.ID,

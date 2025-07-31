@@ -9,6 +9,7 @@ import (
 type Interactor interface {
 	// Bank
 	UpdateUserUsecase(users entity.User2) (entity.User2, error)
+	GetUserProfile(userID uuid.UUID) (entity.User2, error)
 	AddBank(name, shortName, bin, swiftCode, logo string) (*entity.Bank, error)
 	GetBanks() ([]entity.Bank, error)
 	/// Accounts

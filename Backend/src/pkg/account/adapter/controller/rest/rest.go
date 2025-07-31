@@ -23,10 +23,18 @@ func New(log *log.Logger, interactor usecase.Interactor, sm *http.ServeMux, auth
 
 	// Handle routing
 	// User Update
-	sm.HandleFunc("/user-update", func(w http.ResponseWriter, r *http.Request) {
+	sm.HandleFunc("/api/v1/user-update", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			controller.UpdateUser(w, r)
+		}
+	})
+
+	// Get User Profile
+	sm.HandleFunc("/api/v1/user-profile", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			controller.GetUserProfile(w, r)
 		}
 	})
 

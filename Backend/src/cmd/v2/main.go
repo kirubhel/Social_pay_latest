@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -83,7 +82,7 @@ import (
 	qrUsecase "github.com/socialpay/socialpay/src/pkg/qr/usecase"
 
 	// Add this import
-	"github.com/golang-migrate/migrate/v4"
+
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
@@ -156,49 +155,49 @@ func main() {
 	}
 	log.Printf("Current working directory: %s", workDir)
 
-	// Construct absolute path for migrations
-	migrationsPath := fmt.Sprintf("file://%s/db/migrations", workDir)
-	log.Printf("Migrations path: %s", migrationsPath)
+	// // Construct absolute path for migrations
+	// migrationsPath := fmt.Sprintf("file://%s/db/migrations", workDir)
+	// log.Printf("Migrations path: %s", migrationsPath)
 
 	// Construct database URL
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASS"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("SSL_MODE"),
-	)
-	log.Printf("Database URL: postgres://%s:***@%s:%s/%s?sslmode=%s",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("SSL_MODE"),
-	)
+	// dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+	// 	os.Getenv("DB_USER"),
+	// 	os.Getenv("DB_PASS"),
+	// 	os.Getenv("DB_HOST"),
+	// 	os.Getenv("DB_PORT"),
+	// 	os.Getenv("DB_NAME"),
+	// 	os.Getenv("SSL_MODE"),
+	// )
+	// log.Printf("Database URL: postgres://%s:***@%s:%s/%s?sslmode=%s",
+	// 	os.Getenv("DB_USER"),
+	// 	os.Getenv("DB_HOST"),
+	// 	os.Getenv("DB_PORT"),
+	// 	os.Getenv("DB_NAME"),
+	// 	os.Getenv("SSL_MODE"),
+	// )
 
-	// Check if migrations directory exists
-	if _, err := os.Stat(fmt.Sprintf("%s/db/migrations", workDir)); os.IsNotExist(err) {
-		log.Fatal("Migrations directory does not exist at:", fmt.Sprintf("%s/db/migrations", workDir))
-	}
+	// // Check if migrations directory exists
+	// if _, err := os.Stat(fmt.Sprintf("%s/db/migrations", workDir)); os.IsNotExist(err) {
+	// 	log.Fatal("Migrations directory does not exist at:", fmt.Sprintf("%s/db/migrations", workDir))
+	// }
 
 	// Initialize migrate instance
-	log.Println("Initializing migrate...")
-	m, err := migrate.New(
-		migrationsPath,
-		dbURL,
-	)
-	if err != nil {
-		log.Fatal("Failed to initialize migrations:", err)
-	}
+	// log.Println("Initializing migrate...")
+	// m, err := migrate.New(
+	// 	migrationsPath,
+	// 	dbURL,
+	// )
+	// if err != nil {
+	// 	log.Fatal("Failed to initialize migrations:", err)
+	// }
 
-	// Run migrations
-	log.Println("Running migrations...")
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatal("Failed to run migrations:", err)
-	}
+	// // Run migrations
+	// log.Println("Running migrations...")
+	// if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	// 	log.Fatal("Failed to run migrations:", err)
+	// }
 
-	log.Println("Database migrations completed successfully")
+	// log.Println("Database migrations completed successfully")
 
 	// Setup Gin router
 	router := gin.New()

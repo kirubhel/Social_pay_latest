@@ -343,7 +343,144 @@ export const authAPI = {
         }
       }
     }
-  }
+  },
+
+  // Update password
+  updatePassword: async (currentPassword: string, newPassword: string) => {
+    try {
+      const response = await apiClient.post('/auth/password/update', {
+        current_password: currentPassword,
+        new_password: newPassword
+      })
+      // Handle nested response structure
+      if (response.data.success && response.data.data) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to update password'
+        }
+      }
+    }
+  },
+
+  // Update user profile
+  updateUserProfile: async (userData: {
+    first_name?: string;
+    last_name?: string;
+    sir_name?: string;
+    phone_number?: string;
+  }) => {
+    try {
+      const response = await apiClient.post('/api/v1/user-update', userData)
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to update user profile'
+        }
+      }
+    }
+  },
+
+  // Get user profile
+  getUserProfile: async () => {
+    try {
+      const response = await apiClient.get('/api/v1/user-profile')
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to fetch user profile'
+        }
+      }
+    }
+  },
+
+  // Get merchant details
+  getMerchantDetails: async () => {
+    try {
+      const response = await apiClient.get('/api/v1/get/merchant/details')
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to fetch merchant details'
+        }
+      }
+    }
+  },
+
+  // Update merchant details
+  updateMerchantDetails: async (merchantData: {
+    merchant_id: string;
+    merchant: {
+      legal_name?: string;
+      trading_name?: string;
+      business_reg_number?: string;
+      tax_identifier?: string;
+      industry_type?: string;
+      business_type?: string;
+      website_url?: string;
+    };
+    address?: {
+      email?: string;
+      phone_number?: string;
+      personal_name?: string;
+      region?: string;
+      city?: string;
+      sub_city?: string;
+    };
+  }) => {
+    try {
+      const response = await apiClient.post('/api/v1/merchant/update', merchantData)
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to update merchant details'
+        }
+      }
+    }
+  },
+
+  // Create merchant
+  createMerchant: async (merchantData: {
+    legal_name?: string;
+    trading_name?: string;
+    business_reg_number?: string;
+    tax_identifier?: string;
+    industry_type?: string;
+    business_type?: string;
+    website_url?: string;
+    address?: {
+      email?: string;
+      phone_number?: string;
+      personal_name?: string;
+      region?: string;
+      city?: string;
+      sub_city?: string;
+    };
+  }) => {
+    try {
+      const response = await apiClient.post('/api/merchant/create', merchantData)
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.message || 'Failed to create merchant'
+        }
+      }
+    }
+  },
 }
 
 export default apiClient 

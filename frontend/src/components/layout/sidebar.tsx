@@ -28,6 +28,7 @@ const generalMenu = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Inventory', href: '/inventory', icon: ClipboardDocumentListIcon },
   { name: 'Accounts', href: '/accounts', icon: UserGroupIcon },
+  { name: 'Escrow Service', href: '/escrow-service', icon: GlobeAltIcon },
   { name: 'Gateways', href: '/gateways', icon: GlobeAltIcon },
   { name: 'Transactions', href: '/transactions', icon: CreditCardIcon },
 ]

@@ -125,6 +125,15 @@ func New(log *log.Logger, sm *http.ServeMux, interactor usecase.Interactor, repo
 		}
 	})
 
+	sm.HandleFunc("/auth/password/update", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			{
+				controller.UpdatePassword(w, r)
+			}
+		}
+	})
+
 	sm.HandleFunc("/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
