@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  # Backend API Service
-  backend:
+  # Backend V1 API Service (Mux)
+  backend-v1:
     build:
       context: ./Backend
       dockerfile: Dockerfile
-    container_name: socialpay-backend
+    container_name: socialpay-backend-v1
     restart: unless-stopped
     ports:
       - "8004:8004"
@@ -17,7 +17,29 @@ services:
     networks:
       - socialpay-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Backend V2 API Service (Gin)
+  backend-v2:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile.v2
+    container_name: socialpay-backend-v2
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      - APP_ENV=production
+    volumes:
+      - ./Backend/.env:/home/appuser/.env:ro
+    networks:
+      - socialpay-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/swagger/index.html"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -30,6 +52,7 @@ services:
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=http://196.190.251.194:8004
+        - NEXT_PUBLIC_API_V2_URL=http://196.190.251.194:8082
     container_name: socialpay-frontend
     restart: unless-stopped
     ports:
@@ -37,8 +60,10 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://196.190.251.194:8004
+      - NEXT_PUBLIC_API_V2_URL=http://196.190.251.194:8082
     depends_on:
-      - backend
+      - backend-v1
+      - backend-v2
     networks:
       - socialpay-network
     healthcheck:
@@ -54,14 +79,15 @@ services:
     container_name: socialpay-nginx
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "80:80"
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - frontend
-      - backend
+      - backend-v1
+      - backend-v2
     networks:
       - socialpay-network
 

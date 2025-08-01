@@ -41,7 +41,7 @@ import (
 	txEntity "github.com/socialpay/socialpay/src/pkg/transaction/core/entity"
 
 	// Swagger
-	// _ "github.com/socialpay/socialpay/docs"
+	_ "github.com/socialpay/socialpay/src/docs"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 

@@ -38,7 +38,7 @@ print_header() {
 
 # Function to log messages
 log_message() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 # Function to check if Docker is installed
@@ -83,7 +83,7 @@ stop_services() {
     print_header "Stopping Existing Services"
     
     if [ -f "docker-compose.yml" ]; then
-        docker-compose down
+        su -c "docker-compose down"
         print_status "Existing services stopped"
         log_message "Existing services stopped"
     else
@@ -96,10 +96,10 @@ cleanup_docker() {
     print_header "Cleaning Up Docker Resources"
     
     # Remove unused images
-    docker image prune -f
+    su -c "docker image prune -f"
     
     # Remove unused volumes (be careful with this)
-    # docker volume prune -f
+    # su -c "docker volume prune -f"
     
     print_status "Docker cleanup completed"
     log_message "Docker cleanup completed"
@@ -110,15 +110,15 @@ start_services() {
     print_header "Building and Starting Services"
     
     # Build and start services
-    docker-compose build
-    docker-compose up --build -d
+    su -c "docker-compose build"
+    su -c "docker-compose up --build -d"
     
     # Wait for services to be healthy
     print_status "Waiting for services to start..."
     sleep 30
     
     # Check service status
-    docker-compose ps
+    su -c "docker-compose ps"
     
     print_status "Services started successfully"
     log_message "Services started successfully"
@@ -129,11 +129,11 @@ health_check() {
     print_header "Running Health Checks"
     
     # Check if services are running
-    if docker-compose ps | grep -q "Up"; then
+    if su -c "docker-compose ps" | grep -q "Up"; then
         print_status "Services are running"
     else
         print_error "Some services are not running"
-        docker-compose logs --tail=50
+        su -c "docker-compose logs --tail=50"
         exit 1
     fi
     
@@ -150,11 +150,18 @@ health_check() {
         print_warning "Frontend is not responding on port 3000"
     fi
     
-    # Test backend (if accessible)
-    if curl -f -s http://localhost:8008 > /dev/null; then
-        print_status "Backend is responding"
+    # Test backend V1 (if accessible)
+    if curl -f -s http://localhost:8004 > /dev/null; then
+        print_status "Backend V1 is responding"
     else
-        print_warning "Backend is not responding on port 8008"
+        print_warning "Backend V1 is not responding on port 8004"
+    fi
+    
+    # Test backend V2 (if accessible)
+    if curl -f -s http://localhost:8082 > /dev/null; then
+        print_status "Backend V2 is responding"
+    else
+        print_warning "Backend V2 is not responding on port 8082"
     fi
     
     log_message "Health checks completed"
@@ -168,17 +175,27 @@ show_summary() {
     echo "Timestamp: $(date)"
     echo ""
     echo "Services Status:"
-    docker-compose ps
+    su -c "docker-compose ps"
     echo ""
     echo "Access URLs:"
     echo "  Frontend: http://localhost:3000"
-    echo "  Backend:  http://localhost:8008"
+    echo "  Backend V1: http://localhost:8004"
+    echo "  Backend V2: http://localhost:8082"
+    echo "  Swagger:  http://localhost:8082/swagger/index.html"
     echo "  Nginx:    http://localhost"
     echo ""
+    echo "Server URLs:"
+    echo "  Frontend: http://196.190.251.194:3000"
+    echo "  Backend V1: http://196.190.251.194:8004"
+    echo "  Backend V2: http://196.190.251.194:8082"
+    echo "  Swagger:  http://196.190.251.194:8082/swagger/index.html"
+    echo "  Nginx:    http://196.190.251.194"
+    echo ""
     echo "Useful Commands:"
-    echo "  View logs:    docker-compose logs -f"
-    echo "  Stop services: docker-compose down"
-    echo "  Restart:      docker-compose restart"
+    echo "  View logs:    su -c 'docker-compose logs -f'"
+    echo "  Stop services: su -c 'docker-compose down'"
+    echo "  Restart:      su -c 'docker-compose restart'"
+    echo "  Deploy to server: ./deploy_to_server.sh"
     echo ""
     
     log_message "Deployment completed successfully"
@@ -203,6 +220,10 @@ show_usage() {
 # Main deployment function
 main() {
     print_header "SocialPay Deployment Script"
+    
+    # Create log file with proper permissions
+    touch "$LOG_FILE" 2>/dev/null || true
+    chmod 666 "$LOG_FILE" 2>/dev/null || true
     
     # Parse command line arguments
     SKIP_BACKUP=false
