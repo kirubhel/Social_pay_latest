@@ -1,7 +1,7 @@
 -- Common columns for reference:
 -- id, phone_number, user_id, merchant_id, type, medium, reference, comment, 
 -- reference_number, description, verified, status, test, has_challenge, ttl, 
--- created_at, updated_at, confirm_timestamp, amount, fee_amount, admin_net,
+-- created_at, updated_at, confirm_timestamp, base_amount, fee_amount, admin_net,
 -- vat_amount, merchant_net, total_amount, currency, details, token, 
 -- callback_url, success_url, failed_url
 
@@ -9,28 +9,28 @@
 INSERT INTO public.transactions (
     id, phone_number, user_id, merchant_id, type, medium, reference, comment, verified,
     ttl, details, confirm_timestamp, reference_number, test, status,
-    description, token, amount, has_challenge, fee_amount, admin_net,
-    vat_amount, merchant_net, total_amount, currency, callback_url,
+    description, token, base_amount, has_challenge, fee_amount, admin_net,
+    vat_amount, merchant_net, total_amount, customer_net, currency, callback_url,
     success_url, failed_url, transaction_source, qr_link_id, hosted_checkout_id, qr_tag,
-    has_tip, tip_amount, tipee_phone, tip_medium
+    has_tip, tip_amount, tipee_phone, tip_medium, merchant_pays_fee
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
     $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-    $29, $30, $31, $32, $33, $34, $35, $36
+    $29, $30, $31, $32, $33, $34, $35, $36, $37, $38
 );
 
 -- name: CreateTransactionWithContext :exec
 INSERT INTO public.transactions (
     id, phone_number, user_id, merchant_id, type, medium, reference, comment, verified,
     ttl, details, confirm_timestamp, reference_number, test, status,
-    description, token, amount, has_challenge, fee_amount, admin_net,
+    description, token, base_amount, has_challenge, fee_amount, admin_net,
     vat_amount, merchant_net, total_amount, currency, callback_url,
     success_url, failed_url, transaction_source, qr_link_id, hosted_checkout_id, qr_tag,
-    has_tip, tip_amount, tipee_phone, tip_medium
+    has_tip, tip_amount, tipee_phone, tip_medium, merchant_pays_fee
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
     $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-    $29, $30, $31, $32, $33, $34, $35, $36
+    $29, $30, $31, $32, $33, $34, $35, $36, $37
 );
 
 -- name: UpdateTransaction :exec
@@ -69,10 +69,10 @@ WHERE t.id = $1;
 
 -- name: CreateHostedPayment :one
 INSERT INTO public.hosted_payments (
-    id, user_id, merchant_id, amount, currency, description, reference,
-    supported_mediums, phone_number, success_url, failed_url, callback_url
+    id, user_id, merchant_id, amount, currency, description, reference, 
+    supported_mediums, phone_number, success_url, failed_url, callback_url, merchant_pays_fee, accept_tip
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 ) RETURNING *;
 
 -- name: GetHostedPayment :one
@@ -224,5 +224,6 @@ SET
     failed_url = $8,
     callback_url = $9,
     expires_at = $10,
+    merchant_pays_fee = $11,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1;

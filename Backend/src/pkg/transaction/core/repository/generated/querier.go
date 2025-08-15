@@ -18,7 +18,7 @@ type Querier interface {
 	// Common columns for reference:
 	// id, phone_number, user_id, merchant_id, type, medium, reference, comment,
 	// reference_number, description, verified, status, test, has_challenge, ttl,
-	// created_at, updated_at, confirm_timestamp, amount, fee_amount, admin_net,
+	// created_at, updated_at, confirm_timestamp, base_amount, fee_amount, admin_net,
 	// vat_amount, merchant_net, total_amount, currency, details, token,
 	// callback_url, success_url, failed_url
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) error

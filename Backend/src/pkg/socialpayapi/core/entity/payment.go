@@ -48,6 +48,10 @@ type DirectPaymentRequest struct {
 	// URL to receive payment status updates
 	// @Example https://example.com/callback
 	CallbackURL string `json:"callback_url" example:"https://example.com/callback"`
+
+	// Indicates who should pay the fee (true for merchant, false for customer)
+	// @Example false
+	MerchantPaysFee bool `json:"merchant_pays_fee" example:"false"`
 }
 
 func (r DirectPaymentRequest) Validate() error {
@@ -58,6 +62,7 @@ func (r DirectPaymentRequest) Validate() error {
 			entity.TELEBIRR,
 			entity.CBE,
 			entity.AWASH, // Awash
+			entity.KACHA, // Kacha
 		)),
 		validation.Field(&r.Amount, validation.Required, validation.Min(0.01)),
 		validation.Field(&r.Currency, validation.Required, validation.Length(3, 3)),
@@ -105,6 +110,12 @@ type HostedCheckoutRequest struct {
 	// Optional expiry date time in UTC (ISO 8601 format)
 	// @Example 2024-12-31T23:59:59Z
 	ExpiresAt *time.Time `json:"expires_at,omitempty" example:"2024-12-31T23:59:59Z"`
+
+	// Indicates who should pay the fee (true for merchant, false for customer)
+	// @Example false
+	MerchantPaysFee bool `json:"merchant_pays_fee" example:"false"`
+
+	AcceptTip bool `json:"accept_tip" example:"false"`
 }
 
 func (r HostedCheckoutRequest) Validate() error {
@@ -145,6 +156,15 @@ type CheckoutPaymentRequest struct {
 	// Phone number for payment
 	// @Example 251911111111
 	PhoneNumber string `json:"phone_number" example:"251911111111"`
+
+	// Optional tip amount
+	TipAmount *float64 `json:"tip_amount,omitempty" example:"5.00"`
+
+	// Tipee phone number (required if tip amount > 0)
+	TipeePhone *string `json:"tipee_phone,omitempty" example:"251911234568"`
+
+	// Tip payment method (required if tip amount > 0)
+	TipMedium *entity.TransactionMedium `json:"tip_medium,omitempty" example:"TELEBIRR"`
 }
 
 func (r CheckoutPaymentRequest) Validate() error {
@@ -156,6 +176,8 @@ func (r CheckoutPaymentRequest) Validate() error {
 			entity.TELEBIRR,
 			entity.CBE,
 			entity.ETHSWITCH,
+			entity.KACHA,
+			entity.AWASH,
 		)),
 		validation.Field(&r.PhoneNumber, validation.Required, validation.Length(12, 12), validation.Match(regexp.MustCompile(`^251\d{9}$`))),
 	)
@@ -190,6 +212,10 @@ type HostedCheckoutResponseDTO struct {
 
 	// Merchant information (optional)
 	MerchantName string `json:"merchant_name,omitempty" example:"Example Store"`
+
+	// Indicates who should pay the fee (true for merchant, false for customer)
+	// @Example false
+	MerchantPaysFee bool `json:"merchant_pays_fee" example:"false"`
 }
 
 // HostedCheckoutWithMerchantResponseDTO represents the response for hosted checkout details with merchant information
@@ -207,6 +233,10 @@ type HostedCheckoutWithMerchantResponseDTO struct {
 	// Supported payment mediums
 	SupportedMediums []entity.TransactionMedium `json:"supported_mediums" example:"[\"MPESA\", \"TELEBIRR\", \"CBE\"]"`
 
+	// Indicates who should pay the fee (true for merchant, false for customer)
+	// @Example false
+	MerchantPaysFee bool `json:"merchant_pays_fee" example:"false"`
+
 	// Optional pre-filled phone number
 	PhoneNumber string `json:"phone_number,omitempty" example:"251911111111"`
 
@@ -221,6 +251,8 @@ type HostedCheckoutWithMerchantResponseDTO struct {
 
 	// Merchant information
 	Merchant *merchantEntity.Merchant `json:"merchant,omitempty"`
+
+	AcceptTip bool `json:"accept_tip"`
 }
 
 // PaymentResponse represents the response for payment operations
@@ -241,8 +273,11 @@ type PaymentResponse struct {
 	// Unique payment reference
 	Reference string `json:"reference_id" example:"PAY123456789"`
 
-	// Socialpay transaction ID
-	SocialPayTransactionID string `json:"Socialpay_transaction_id,omitempty" example:"1234567890"`
+	// SocialPay transaction ID
+	SocialPayTransactionID string `json:"socialpay_transaction_id,omitempty" example:"1234567890"`
+
+	// MerchantPays fee flag
+	MerchantPaysFee bool `json:"merchant_pays_fee" example:"false"`
 }
 
 // WithdrawalRequest represents the request for withdrawal
@@ -267,6 +302,10 @@ type WithdrawalRequest struct {
 
 	// Client-provided reference
 	Reference string `json:"reference" example:"WD123456789"`
+
+	// MerchantPays fee flag
+	// Indicates who should pay the fee (true for merchant, false for customer)
+	MerchantPaysFee bool `json:"merchant_pays_fee" example:"false"`
 }
 
 func (r WithdrawalRequest) Validate() error {
@@ -396,6 +435,10 @@ type UpdateHostedCheckoutRequest struct {
 	// Optional expiry date time in UTC (ISO 8601 format)
 	// @Example 2024-12-31T23:59:59Z
 	ExpiresAt *time.Time `json:"expires_at,omitempty" example:"2024-12-31T23:59:59Z"`
+
+	// Indicates who should pay the fee (true for merchant, false for customer)
+	// @Example false
+	MerchantPaysFee *bool `json:"merchant_pays_fee" example:"false"`
 }
 
 func (r UpdateHostedCheckoutRequest) Validate() error {

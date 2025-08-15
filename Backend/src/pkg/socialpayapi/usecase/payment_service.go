@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/socialpay/socialpay/src/pkg/shared/logging"
 	"github.com/socialpay/socialpay/src/pkg/shared/payment"
@@ -13,6 +14,7 @@ import (
 type PaymentProcessor interface {
 	ProcessPayment(ctx context.Context, apikey string, req *payment.PaymentRequest) (*payment.PaymentResponse, error)
 	ProcessWithdrawal(ctx context.Context, apikey string, req *payment.PaymentRequest) (*payment.PaymentResponse, error)
+	QueryTransactionStatus(ctx context.Context, medium txEntity.TransactionMedium, transactionID string) (*payment.TransactionStatusQueryResponse, error)
 }
 
 type paymentService struct {
@@ -42,7 +44,19 @@ func (s *paymentService) ProcessPayment(ctx context.Context, apikey string, req 
 		return nil, fmt.Errorf("no payment processor available")
 	}
 
+	// Round amount to atmost 2 decimal places
+	req.Amount = math.Round(req.Amount*100) / 100
+
 	return processor.InitiatePayment(ctx, apikey, req)
+}
+
+func (s *paymentService) QueryTransactionStatus(ctx context.Context, medium txEntity.TransactionMedium, transactionID string) (*payment.TransactionStatusQueryResponse, error) {
+	processor, ok := s.processors[medium]
+	if !ok {
+		return nil, fmt.Errorf("no payment processor available")
+	}
+
+	return processor.QueryTransactionStatus(ctx, transactionID)
 }
 
 func (s *paymentService) ProcessWithdrawal(ctx context.Context, apikey string, req *payment.PaymentRequest) (*payment.PaymentResponse, error) {
@@ -50,6 +64,9 @@ func (s *paymentService) ProcessWithdrawal(ctx context.Context, apikey string, r
 	if !ok {
 		return nil, fmt.Errorf("no payment processor available")
 	}
+
+	// Round amount to atmost 2 decimal places
+	req.Amount = math.Round(req.Amount*100) / 100
 
 	return processor.InitiateWithdrawal(ctx, apikey, req)
 }

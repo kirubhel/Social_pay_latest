@@ -82,6 +82,60 @@ type TransactionAnalytics struct {
 	PeriodComparison *PeriodComparison `json:"period_comparison,omitempty"`
 }
 
+// AdminTransactionAnalytics represents admin-specific transaction analytics with additional financial data
+// @Description Admin transaction analytics with VAT, fees, and admin net information
+type AdminTransactionAnalytics struct {
+	// Transaction counts and amounts
+	TotalTransactions int64   `json:"total_transactions"`
+	TotalAmount       float64 `json:"total_amount"`
+
+	// Financial breakdown - Admin specific
+	TotalMerchantNet float64 `json:"total_merchant_net"`
+	TotalAdminNet    float64 `json:"total_admin_net"`
+	TotalVATAmount   float64 `json:"total_vat_amount"`
+	TotalFeeAmount   float64 `json:"total_fee_amount"`
+	TotalCustomerNet float64 `json:"total_customer_net"`
+
+	// Transaction type breakdown
+	TotalDeposits    TransactionTypeAnalytics `json:"total_deposits"`
+	TotalWithdrawals TransactionTypeAnalytics `json:"total_withdrawals"`
+	TotalTips        TransactionTypeAnalytics `json:"total_tips"`
+
+	// Period comparison (percentage change from previous period)
+	PeriodComparison *PeriodComparison `json:"period_comparison,omitempty"`
+}
+
+// MerchantGrowthAnalytics represents merchant growth statistics
+// @Description Merchant growth analytics and statistics
+type MerchantGrowthAnalytics struct {
+	// Current counts
+	TotalMerchants    int64 `json:"total_merchants"`
+	ActiveMerchants   int64 `json:"active_merchants"`
+	InactiveMerchants int64 `json:"inactive_merchants"`
+	PendingMerchants  int64 `json:"pending_merchants"`
+
+	// Growth rates (percentage change from previous period)
+	TotalMerchantGrowth  float64 `json:"total_merchant_growth"`
+	ActiveMerchantGrowth float64 `json:"active_merchant_growth"`
+
+	// Period breakdown
+	NewMerchantsThisPeriod         int64 `json:"new_merchants_this_period"`
+	ActivatedMerchantsThisPeriod   int64 `json:"activated_merchants_this_period"`
+	DeactivatedMerchantsThisPeriod int64 `json:"deactivated_merchants_this_period"`
+
+	// Time series data for charts
+	GrowthData []MerchantGrowthDataPoint `json:"growth_data,omitempty"`
+}
+
+// MerchantGrowthDataPoint represents a single data point in merchant growth chart
+type MerchantGrowthDataPoint struct {
+	Date            time.Time `json:"date"`
+	TotalMerchants  int64     `json:"total_merchants"`
+	NewMerchants    int64     `json:"new_merchants"`
+	ActiveMerchants int64     `json:"active_merchants"`
+	Label           string    `json:"label"`
+}
+
 // TransactionTypeAnalytics represents analytics for a specific transaction type
 type TransactionTypeAnalytics struct {
 	Count  int64   `json:"count"`

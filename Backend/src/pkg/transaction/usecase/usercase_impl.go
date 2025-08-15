@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/socialpay/socialpay/src/pkg/shared/errorxx"
@@ -16,11 +17,6 @@ import (
 type transactionUseCase struct {
 	repo transaction_repository.TransactionRepository
 	log  logging.Logger
-}
-
-// OverrideTransactionStatus implements TransactionUseCase.
-func (t *transactionUseCase) OverrideTransactionStatus(ctx context.Context, txnID uuid.UUID, newStatus entity.TransactionStatus, reason string, adminID string) error {
-	return t.repo.OverrideTransactionStatus(ctx, txnID, newStatus, reason, adminID)
 }
 
 func (t *transactionUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity.Transaction, error) {
@@ -70,7 +66,7 @@ func (t *transactionUseCase) GetTransactions(c context.Context, UserId uuid.UUID
 }
 
 func (t *transactionUseCase) GetTransactionByParamenters(c context.Context, UserId uuid.UUID,
-	parameter *entity.FilterParameters, pagination pagination.Pagination) ([]entity.Transaction, int, error) {
+	parameter *entity.FilterParameters, pagination pagination.Pagination, queryForAllUsers bool) ([]entity.Transaction, int, error) {
 
 	// validating parameters
 	if err := parameter.Validate(); err != nil {
@@ -88,11 +84,13 @@ func (t *transactionUseCase) GetTransactionByParamenters(c context.Context, User
 	// building filter obj
 	filterParameter := parameter.ToFilter()
 
-	filterParameter.Group.Fields = append(filterParameter.Group.Fields, filter.Field{
-		Name:     "user_id",
-		Operator: "=",
-		Value:    UserId,
-	})
+	if !queryForAllUsers {
+		filterParameter.Group.Fields = append(filterParameter.Group.Fields, filter.Field{
+			Name:     "user_id",
+			Operator: "=",
+			Value:    UserId,
+		})
+	}
 
 	count, err := t.repo.GetTransactionByParametersCount(c, filterParameter, UserId)
 
@@ -257,4 +255,105 @@ func (t *transactionUseCase) GetChartData(ctx context.Context, filter *entity.Ch
 	})
 
 	return chartData, nil
+}
+
+// GetAdminTransactionAnalytics retrieves admin-specific transaction analytics
+func (t *transactionUseCase) GetAdminTransactionAnalytics(ctx context.Context, filter *entity.AnalyticsFilter) (*entity.AdminTransactionAnalytics, error) {
+	fmt.Println("[admin][usecase]filter", filter)
+	// Validate the filter parameters
+	if err := filter.Validate(); err != nil {
+		err = errorxx.ErrAppBadInput.Wrap(err, "admin analytics filter validation error").
+			WithProperty(errorxx.ErrorCode, 400)
+
+		t.log.Error("admin analytics filter validation error", map[string]interface{}{
+			"error":   err,
+			"context": ctx,
+		})
+		return nil, err
+	}
+
+	// Get admin analytics from repository
+	analytics, err := t.repo.GetAdminTransactionAnalytics(ctx, filter)
+	if err != nil {
+		err = errorxx.ErrDBRead.Wrap(err, "failed to get admin transaction analytics").
+			WithProperty(errorxx.ErrorCode, 500)
+
+		t.log.Error("failed to get admin transaction analytics", map[string]interface{}{
+			"error":  err,
+			"filter": filter,
+		})
+		return nil, err
+	}
+
+	t.log.Info("admin transaction analytics retrieved successfully", map[string]interface{}{
+		"total_transactions": analytics.TotalTransactions,
+		"total_amount":       analytics.TotalAmount,
+		"total_admin_net":    analytics.TotalAdminNet,
+		"date_range":         fmt.Sprintf("%s to %s", filter.StartDate.Format("2006-01-02"), filter.EndDate.Format("2006-01-02")),
+	})
+
+	return analytics, nil
+}
+
+// GetAdminChartData retrieves admin-specific chart data
+func (t *transactionUseCase) GetAdminChartData(ctx context.Context, filter *entity.ChartFilter) (*entity.ChartData, error) {
+	// Validate the filter parameters
+	if err := filter.Validate(); err != nil {
+		err = errorxx.ErrAppBadInput.Wrap(err, "admin chart filter validation error").
+			WithProperty(errorxx.ErrorCode, 400)
+
+		t.log.Error("admin chart filter validation error", map[string]interface{}{
+			"error":   err,
+			"context": ctx,
+		})
+		return nil, err
+	}
+
+	// Get admin chart data from repository
+	chartData, err := t.repo.GetAdminChartData(ctx, filter)
+	if err != nil {
+		err = errorxx.ErrDBRead.Wrap(err, "failed to get admin chart data").
+			WithProperty(errorxx.ErrorCode, 500)
+
+		t.log.Error("failed to get admin chart data", map[string]interface{}{
+			"error":  err,
+			"filter": filter,
+		})
+		return nil, err
+	}
+
+	t.log.Info("admin chart data retrieved successfully", map[string]interface{}{
+		"chart_type":  filter.ChartType,
+		"date_unit":   filter.DateUnit,
+		"data_points": len(chartData.Data),
+	})
+
+	return chartData, nil
+}
+
+// GetMerchantGrowthAnalytics retrieves merchant growth analytics
+func (t *transactionUseCase) GetMerchantGrowthAnalytics(ctx context.Context, startDate, endDate time.Time, dateUnit entity.DateUnit) (*entity.MerchantGrowthAnalytics, error) {
+	// Get merchant growth analytics from repository
+	analytics, err := t.repo.GetMerchantGrowthAnalytics(ctx, startDate, endDate, dateUnit)
+	if err != nil {
+		err = errorxx.ErrDBRead.Wrap(err, "failed to get merchant growth analytics").
+			WithProperty(errorxx.ErrorCode, 500)
+
+		t.log.Error("failed to get merchant growth analytics", map[string]interface{}{
+			"error":      err,
+			"start_date": startDate,
+			"end_date":   endDate,
+			"date_unit":  dateUnit,
+		})
+		return nil, err
+	}
+
+	t.log.Info("merchant growth analytics retrieved successfully", map[string]interface{}{
+		"total_merchants":  analytics.TotalMerchants,
+		"active_merchants": analytics.ActiveMerchants,
+		"growth_rate":      analytics.TotalMerchantGrowth,
+		"date_range":       fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02")),
+	})
+
+	return analytics, nil
 }

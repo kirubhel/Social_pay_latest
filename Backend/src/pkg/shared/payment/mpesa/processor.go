@@ -197,10 +197,119 @@ func (p *processor) GetType() txEntity.TransactionMedium {
 }
 
 func (p *processor) InitiateWithdrawal(ctx context.Context, apikey string, req *payment.PaymentRequest) (*payment.PaymentResponse, error) {
-	p.log.Error("Withdrawal not supported", map[string]interface{}{
-		"processor": "M-PESA",
+	p.log.Info("Initiating M-PESA withdrawal", map[string]interface{}{
+		"transaction_id": req.TransactionID,
+		"amount":         req.Amount,
+		"currency":       req.Currency,
 	})
-	return nil, fmt.Errorf("withdrawal not supported for M-PESA")
+
+	// Prepare M-PESA B2C request
+	mpesaReq := map[string]interface{}{
+		"OriginatorConversationID": req.TransactionID.String(),
+		"InitiatorName":            "apitest",
+		"SecurityCredential":       os.Getenv("MPESA_SECURITY_CREDENTIAL"),
+		"CommandID":                "BusinessPayment",
+		"PartyA":                   "1883",
+		"PartyB":                   req.PhoneNumber,
+		"Amount":                   req.Amount,
+		"Remarks":                  "Pay to Customer",
+		"Occassion":                "PayOut",
+		"QueueTimeOutURL":          os.Getenv("MPESA_CALLBACK_BASE_URL"),
+		"ResultURL":                os.Getenv("MPESA_CALLBACK_BASE_URL") + "/account/mpesa/b2c/transaction-status",
+	}
+
+	p.log.Info("Prepared M-PESA B2C request", map[string]interface{}{
+		"originator_conversation_id": mpesaReq["OriginatorConversationID"],
+		"phone":                      mpesaReq["PartyB"],
+	})
+
+	// Convert request to JSON
+	jsonData, err := json.Marshal(mpesaReq)
+	if err != nil {
+		p.log.Error("Failed to marshal request", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	endpoint := "https://api.socialpay.co/account/mpesa/payment/b2c"
+	p.log.Info("Creating request to M-PESA B2C", map[string]interface{}{
+		"url":  endpoint,
+		"body": string(jsonData),
+	})
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		endpoint,
+		strings.NewReader(string(jsonData)),
+	)
+	if err != nil {
+		log.Printf("[MPESA] Failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add headers
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-API-KEY", apikey)
+	log.Printf("[MPESA] Added headers - Content-Type: application/json, X-API-KEY: %s", maskAPIKey(apikey))
+	httpReq.Header.Set("Authorization", "Basic "+p.username)
+
+	p.log.Info("Sending request to M-PESA", map[string]interface{}{
+		"url": httpReq.URL.String(),
+	})
+
+	// Send request
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		p.log.Error("Failed to send request to M-PESA", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+	p.log.Info("M-PESA response status", map[string]interface{}{
+		"status": resp.Status,
+	})
+	// Read response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		p.log.Error("Failed to read response body", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	p.log.Info("Response body", map[string]interface{}{
+		"body": string(bodyBytes),
+	})
+
+	// Parse response
+	var mpesaResp struct {
+		Success bool   `json:"success"`
+		Data    string `json:"data"`
+	}
+
+	if err := json.Unmarshal(bodyBytes, &mpesaResp); err != nil {
+		p.log.Error("Failed to decode M-PESA B2C response", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Map response status
+	status := txEntity.PENDING
+	if !mpesaResp.Success {
+		status = txEntity.FAILED
+	}
+
+	return &payment.PaymentResponse{
+		Success:       mpesaResp.Success,
+		TransactionID: req.TransactionID,
+		Status:        status,
+		ProcessorRef:  req.Reference,
+		Message:       mpesaResp.Data,
+	}, nil
 }
 
 func maskAPIKey(key string) string {
@@ -208,4 +317,11 @@ func maskAPIKey(key string) string {
 		return key
 	}
 	return "****" + key[len(key)-4:]
+}
+
+func (p *processor) QueryTransactionStatus(ctx context.Context, transactionID string) (*payment.TransactionStatusQueryResponse, error) {
+	p.log.Info("Querying Mpesa transaction status", map[string]interface{}{
+		"transaction_id": transactionID,
+	})
+	return nil, nil
 }

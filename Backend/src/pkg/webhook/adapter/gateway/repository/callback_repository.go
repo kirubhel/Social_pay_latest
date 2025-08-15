@@ -14,6 +14,6 @@ type CallbackRepository interface {
 	Update(ctx context.Context, log *webhookEntity.CallbackLog) error
 	GetByTransactionID(ctx context.Context, txnID uuid.UUID) ([]*webhookEntity.CallbackLog, error)
 	GetByStatus(ctx context.Context, status int) ([]*webhookEntity.CallbackLog, error)
-	GetByMerchantID(ctx context.Context, merchantID uuid.UUID) ([]*webhookEntity.CallbackLog, error)
+	GetByMerchantID(ctx context.Context, merchantID uuid.UUID, pagination *txEntity.Pagination) ([]*webhookEntity.CallbackLog, error)
 	GetAll(ctx context.Context, pagination *txEntity.Pagination) ([]*webhookEntity.CallbackLog, error)
 }

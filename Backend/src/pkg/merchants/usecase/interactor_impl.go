@@ -88,13 +88,6 @@ func (u *Usecase) GetMerchantByUserID(userID uuid.UUID) (*entity.Merchant, error
 func (u *Usecase) GetMerchantDetails(userID uuid.UUID) (*entity.MerchantDetails, error) {
 	merchant, err := u.repo.GetMerchantDetails(userID)
 	if err != nil {
-		// Check if it's a "merchant not found" error
-		if err.Error() == "merchant not found" {
-			// Return nil instead of an error - this indicates no merchant profile exists
-			u.log.Printf("No merchant profile found for user %v", userID)
-			return nil, nil
-		}
-
 		u.log.Printf("Error getting merchant details: %v", err)
 		return nil, errors.Error{
 			Type:    "DATABASE_ERROR",

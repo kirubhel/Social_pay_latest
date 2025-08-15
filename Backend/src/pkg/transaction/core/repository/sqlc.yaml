@@ -10,7 +10,7 @@ sql:
         package: "repository"
         out: "generated"
         overrides:
-          - column: "transactions.amount"
+          - column: "transactions.base_amount"
             go_type: "github.com/shopspring/decimal.Decimal"
           - column: "transactions.fee_amount"
             go_type: "github.com/shopspring/decimal.NullDecimal"
@@ -19,6 +19,8 @@ sql:
           - column: "transactions.vat_amount"
             go_type: "github.com/shopspring/decimal.NullDecimal"
           - column: "transactions.merchant_net"
+            go_type: "github.com/shopspring/decimal.NullDecimal"
+          - column: "transactions.customer_net"
             go_type: "github.com/shopspring/decimal.NullDecimal"
           - column: "transactions.total_amount"
             go_type: "github.com/shopspring/decimal.NullDecimal"

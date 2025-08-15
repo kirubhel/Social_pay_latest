@@ -68,7 +68,7 @@ func (controller Controller) CreateKey(w http.ResponseWriter, r *http.Request) {
 	//request the endpoint and get merchant id
 	host := os.Getenv("HOST")
 	if host == "" {
-		host = "http://localhost:8004" // Default value if the environment variable is not set
+		host = "http://196.190.251.194:8082" // Default value if the environment variable is not set
 	}
 	reqMerchant, err := http.NewRequest("GET", host+"/merchant-by-user", nil)
 	if err != nil {

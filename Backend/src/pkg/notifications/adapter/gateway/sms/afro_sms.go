@@ -35,7 +35,7 @@ func New(log *log.Logger) *AfroSMS {
 
 	return &AfroSMS{
 		log:       log,
-		Name:      "Social Pay",
+		Name:      "SocialPay",
 		AccessKey: accessKey,
 		SecretKey: secretKey,
 		From:      from,
@@ -130,7 +130,9 @@ func (sms *AfroSMS) SendSMS(phoneNumber, message string) error {
 	// Check if the API request was successful
 	if !response.Success {
 		sms.log.Printf("[AfroSMS] API Error: %s", response.Message)
-		return errors.New(response.Message)
+		return nil
+		// temporary return nil
+		// return errors.New(response.Message)
 	}
 
 	sms.log.Printf("[AfroSMS] SMS sent successfully. ID: %s", response.Result.SmsID)

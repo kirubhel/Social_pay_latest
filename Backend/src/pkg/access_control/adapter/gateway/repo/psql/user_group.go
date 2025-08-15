@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (repo PsqlRepo) GrantPermissionToUser(userID uuid.UUID, permissionID uuid.UUID) error {
+func (repo PsqlRepo) GrantUserTypePermissions(userID uuid.UUID, userType string) error {
 	const checkUserQuery = `
 		SELECT 1 FROM auth.users WHERE id = $1
 	`
@@ -24,9 +24,9 @@ func (repo PsqlRepo) GrantPermissionToUser(userID uuid.UUID, permissionID uuid.U
 		SELECT 1 FROM auth.permissions WHERE id = $1
 	`
 	var permissionExists bool
-	err = repo.db.QueryRow(checkPermissionQuery, permissionID).Scan(&permissionExists)
+	err = repo.db.QueryRow(checkPermissionQuery, userType).Scan(&permissionExists)
 	if err == sql.ErrNoRows {
-		return fmt.Errorf("permission with ID %s does not exist", permissionID)
+		return fmt.Errorf("permission with ID %s does not exist", userType)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check if permission exists %v", err)
@@ -37,19 +37,19 @@ func (repo PsqlRepo) GrantPermissionToUser(userID uuid.UUID, permissionID uuid.U
 		WHERE user_id = $1 AND permission_id = $2
 	`
 	var exists bool
-	err = repo.db.QueryRow(checkPermissionGrantedQuery, userID, permissionID).Scan(&exists)
+	err = repo.db.QueryRow(checkPermissionGrantedQuery, userID, userType).Scan(&exists)
 	if err == sql.ErrNoRows {
 	} else if err != nil {
 		return fmt.Errorf("failed to check permission existence %v", err)
 	} else {
-		return fmt.Errorf("permission with ID %s is already granted to user with ID %s", permissionID, userID)
+		return fmt.Errorf("permission with ID %s is already granted to user with ID %s", userType, userID)
 	}
 
 	const grantPermissionQuery = `
 		INSERT INTO auth.user_permissions (id, user_id, permission_id, created_at, updated_at)
 		VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
-	_, err = repo.db.Exec(grantPermissionQuery, userID, permissionID)
+	_, err = repo.db.Exec(grantPermissionQuery, userID, userType)
 	if err != nil {
 		return fmt.Errorf("failed to grant permission to user %v", err)
 	}

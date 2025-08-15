@@ -20,6 +20,6 @@ type WebhookUseCase interface {
 	GetProducer() *producer.GroupedProducer
 	GetSendProducer() *producer.GroupedProducer
 	GetCallbackLogByID(ctx context.Context, id uuid.UUID) (*entity.CallbackLog, error)
-	GetCallbackLogsByMerchantID(ctx context.Context, merchantID uuid.UUID) ([]*entity.CallbackLog, error)
+	GetCallbackLogsByMerchantID(ctx context.Context, merchantID uuid.UUID, pagination *txEntity.Pagination) ([]*entity.CallbackLog, error)
 	GetAllCallbackLogs(ctx context.Context, pagination *txEntity.Pagination) ([]*entity.CallbackLog, error)
 }

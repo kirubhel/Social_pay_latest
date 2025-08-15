@@ -15,14 +15,3 @@ CREATE TABLE IF NOT EXISTS webhook.callback_logs (
     FOREIGN KEY (txn_id) REFERENCES public.transactions(id)
 ); 
 
-CREATE TABLE IF NOT EXISTS merchant.wallet (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    merchant_id UUID NOT NULL,
-    amount FLOAT NOT NULL DEFAULT 0,
-    locked_amount FLOAT NOT NULL DEFAULT 0,
-    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);

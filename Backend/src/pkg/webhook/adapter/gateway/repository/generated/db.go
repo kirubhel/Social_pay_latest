@@ -27,9 +27,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createCallbackLogStmt, err = db.PrepareContext(ctx, createCallbackLog); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCallbackLog: %w", err)
 	}
-	if q.createMerchantWalletStmt, err = db.PrepareContext(ctx, createMerchantWallet); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateMerchantWallet: %w", err)
-	}
 	if q.getAllCallbackLogsStmt, err = db.PrepareContext(ctx, getAllCallbackLogs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllCallbackLogs: %w", err)
 	}
@@ -45,23 +42,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCallbackLogsByTransactionIDStmt, err = db.PrepareContext(ctx, getCallbackLogsByTransactionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCallbackLogsByTransactionID: %w", err)
 	}
-	if q.getMerchantWalletByMerchantIDStmt, err = db.PrepareContext(ctx, getMerchantWalletByMerchantID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetMerchantWalletByMerchantID: %w", err)
-	}
-	if q.getMerchantWalletByMerchantIDForUpdateStmt, err = db.PrepareContext(ctx, getMerchantWalletByMerchantIDForUpdate); err != nil {
-		return nil, fmt.Errorf("error preparing query GetMerchantWalletByMerchantIDForUpdate: %w", err)
-	}
-	if q.getMerchantWalletByUserIDStmt, err = db.PrepareContext(ctx, getMerchantWalletByUserID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetMerchantWalletByUserID: %w", err)
-	}
 	if q.updateCallbackLogStmt, err = db.PrepareContext(ctx, updateCallbackLog); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCallbackLog: %w", err)
-	}
-	if q.updateMerchantWalletStmt, err = db.PrepareContext(ctx, updateMerchantWallet); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateMerchantWallet: %w", err)
-	}
-	if q.updateMerchantWalletAmountByMerchantIDStmt, err = db.PrepareContext(ctx, updateMerchantWalletAmountByMerchantID); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateMerchantWalletAmountByMerchantID: %w", err)
 	}
 	return &q, nil
 }
@@ -71,11 +53,6 @@ func (q *Queries) Close() error {
 	if q.createCallbackLogStmt != nil {
 		if cerr := q.createCallbackLogStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCallbackLogStmt: %w", cerr)
-		}
-	}
-	if q.createMerchantWalletStmt != nil {
-		if cerr := q.createMerchantWalletStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createMerchantWalletStmt: %w", cerr)
 		}
 	}
 	if q.getAllCallbackLogsStmt != nil {
@@ -103,34 +80,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCallbackLogsByTransactionIDStmt: %w", cerr)
 		}
 	}
-	if q.getMerchantWalletByMerchantIDStmt != nil {
-		if cerr := q.getMerchantWalletByMerchantIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getMerchantWalletByMerchantIDStmt: %w", cerr)
-		}
-	}
-	if q.getMerchantWalletByMerchantIDForUpdateStmt != nil {
-		if cerr := q.getMerchantWalletByMerchantIDForUpdateStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getMerchantWalletByMerchantIDForUpdateStmt: %w", cerr)
-		}
-	}
-	if q.getMerchantWalletByUserIDStmt != nil {
-		if cerr := q.getMerchantWalletByUserIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getMerchantWalletByUserIDStmt: %w", cerr)
-		}
-	}
 	if q.updateCallbackLogStmt != nil {
 		if cerr := q.updateCallbackLogStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCallbackLogStmt: %w", cerr)
-		}
-	}
-	if q.updateMerchantWalletStmt != nil {
-		if cerr := q.updateMerchantWalletStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateMerchantWalletStmt: %w", cerr)
-		}
-	}
-	if q.updateMerchantWalletAmountByMerchantIDStmt != nil {
-		if cerr := q.updateMerchantWalletAmountByMerchantIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateMerchantWalletAmountByMerchantIDStmt: %w", cerr)
 		}
 	}
 	return err
@@ -170,21 +122,15 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                         DBTX
-	tx                                         *sql.Tx
-	createCallbackLogStmt                      *sql.Stmt
-	createMerchantWalletStmt                   *sql.Stmt
-	getAllCallbackLogsStmt                     *sql.Stmt
-	getCallbackLogByIDStmt                     *sql.Stmt
-	getCallbackLogsByMerchantIDStmt            *sql.Stmt
-	getCallbackLogsByStatusStmt                *sql.Stmt
-	getCallbackLogsByTransactionIDStmt         *sql.Stmt
-	getMerchantWalletByMerchantIDStmt          *sql.Stmt
-	getMerchantWalletByMerchantIDForUpdateStmt *sql.Stmt
-	getMerchantWalletByUserIDStmt              *sql.Stmt
-	updateCallbackLogStmt                      *sql.Stmt
-	updateMerchantWalletStmt                   *sql.Stmt
-	updateMerchantWalletAmountByMerchantIDStmt *sql.Stmt
+	db                                 DBTX
+	tx                                 *sql.Tx
+	createCallbackLogStmt              *sql.Stmt
+	getAllCallbackLogsStmt             *sql.Stmt
+	getCallbackLogByIDStmt             *sql.Stmt
+	getCallbackLogsByMerchantIDStmt    *sql.Stmt
+	getCallbackLogsByStatusStmt        *sql.Stmt
+	getCallbackLogsByTransactionIDStmt *sql.Stmt
+	updateCallbackLogStmt              *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -192,17 +138,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                                 tx,
 		tx:                                 tx,
 		createCallbackLogStmt:              q.createCallbackLogStmt,
-		createMerchantWalletStmt:           q.createMerchantWalletStmt,
 		getAllCallbackLogsStmt:             q.getAllCallbackLogsStmt,
 		getCallbackLogByIDStmt:             q.getCallbackLogByIDStmt,
 		getCallbackLogsByMerchantIDStmt:    q.getCallbackLogsByMerchantIDStmt,
 		getCallbackLogsByStatusStmt:        q.getCallbackLogsByStatusStmt,
 		getCallbackLogsByTransactionIDStmt: q.getCallbackLogsByTransactionIDStmt,
-		getMerchantWalletByMerchantIDStmt:  q.getMerchantWalletByMerchantIDStmt,
-		getMerchantWalletByMerchantIDForUpdateStmt: q.getMerchantWalletByMerchantIDForUpdateStmt,
-		getMerchantWalletByUserIDStmt:              q.getMerchantWalletByUserIDStmt,
-		updateCallbackLogStmt:                      q.updateCallbackLogStmt,
-		updateMerchantWalletStmt:                   q.updateMerchantWalletStmt,
-		updateMerchantWalletAmountByMerchantIDStmt: q.updateMerchantWalletAmountByMerchantIDStmt,
+		updateCallbackLogStmt:              q.updateCallbackLogStmt,
 	}
 }

@@ -64,6 +64,9 @@ func (ns *NotificationServiceImpl) SendTransactionNotification(ctx context.Conte
 		switch recipient.Type {
 		case entity.TypeSMS:
 			message := ns.buildTransactionSMSMessage(recipient, req.TransactionData)
+			if message == "" {
+				continue
+			}
 			if err := ns.SendSMS(ctx, recipient.Identifier, message); err != nil {
 				ns.log.Printf("[SendTransactionNotification] Failed to send SMS to %s (%s): %v",
 					recipient.Name, recipient.Identifier, err)
@@ -140,7 +143,7 @@ func (ns *NotificationServiceImpl) buildTransactionSMSMessage(recipient Notifica
 	timeStr := now.Format("3:04 PM")
 
 	if data.MerchantName == "" {
-		data.MerchantName = "Merchant"
+		data.MerchantName = "merchant"
 	}
 
 	var message string
@@ -152,6 +155,7 @@ func (ns *NotificationServiceImpl) buildTransactionSMSMessage(recipient Notifica
 				`Dear %s,
 Your payment of %.2f %s to %s has been successfully processed.
 Reference: %s
+txnid: %s
 Date: %s at %s
 
 📞6562
@@ -161,6 +165,7 @@ Date: %s at %s
 				data.Currency,
 				data.MerchantName,
 				data.Reference,
+				data.TransactionID,
 				dateStr,
 				timeStr,
 			)
@@ -169,6 +174,7 @@ Date: %s at %s
 				`Dear %s,
 Your payment of %.2f %s to %s has failed.
 Reference: %s
+txnid: %s
 Date: %s at %s
 
 Please try again or contact support.`,
@@ -177,46 +183,75 @@ Please try again or contact support.`,
 				data.Currency,
 				data.MerchantName,
 				data.Reference,
+				data.TransactionID,
 				dateStr,
 				timeStr,
 			)
 		}
 
-	case "merchant":
+	case "merchant_sender":
 		if data.Status == "SUCCESS" {
 			message = fmt.Sprintf(
 				`Dear %s,
-You received %.2f %s from %s.
+Withdrawal of %.2f %s to %s has been successfully processed.
 Reference: %s
+txnid: %s
 Date: %s at %s
 
-Social Pay - Your trusted payment partner!`,
+SocialPay - Your trusted payment partner!`,
 				recipient.Name,
 				data.Amount,
 				data.Currency,
-				data.CustomerName,
+				data.PhoneNumber,
 				data.Reference,
+				data.TransactionID,
 				dateStr,
 				timeStr,
 			)
 		} else {
 			message = fmt.Sprintf(
 				`Dear %s,
-Payment of %.2f %s from %s failed.
+Withdrawal of %.2f %s to %s has failed.
 Reference: %s
-Date: %s at %s
+txnid: %s
+Date: %s at %s.
 
-Transaction was not completed.`,
+SocialPay - Your trusted payment partner!
+`,
 				recipient.Name,
 				data.Amount,
 				data.Currency,
-				data.CustomerName,
+				data.PhoneNumber,
 				data.Reference,
+				data.TransactionID,
 				dateStr,
 				timeStr,
 			)
 		}
 
+	case "merchant_recipient":
+		if data.Status == "SUCCESS" {
+			message = fmt.Sprintf(
+				`Dear %s,
+You have recieved payment of %.2f %s from %s.
+Reference: %s
+txnid: %s
+Date: %s at %s.
+
+SocialPay - Your trusted payment partner!
+`,
+				recipient.Name,
+				data.Amount,
+				data.Currency,
+				data.PhoneNumber,
+				data.Reference,
+				data.TransactionID,
+				dateStr,
+				timeStr,
+			)
+		} else {
+			message = ""
+		}
 	case "tipee":
 		if data.Status == "SUCCESS" {
 			message = fmt.Sprintf(
@@ -227,7 +262,7 @@ Date: %s at %s
 
 Thank you for your service!`,
 				recipient.Name,
-				data.Amount,
+				data.TipAmount,
 				data.Currency,
 				data.Reference,
 				dateStr,
@@ -259,7 +294,7 @@ func (ns *NotificationServiceImpl) buildTemplatedMessage(template entity.Notific
 	switch template {
 	case entity.TemplateOTP:
 		if otp, ok := data["otp"].(string); ok {
-			return fmt.Sprintf("Your Social Pay verification code is %s. Do not share this code with anyone.", otp), nil
+			return fmt.Sprintf("Your SocialPay verification code is %s. Do not share this code with anyone.", otp), nil
 		}
 		return "", fmt.Errorf("OTP template requires 'otp' field")
 

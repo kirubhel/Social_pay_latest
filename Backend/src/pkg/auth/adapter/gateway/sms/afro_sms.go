@@ -21,10 +21,10 @@ type AfroSMS struct {
 func New(log *log.Logger) AfroSMS {
 	return AfroSMS{
 		log:       log,
-		Name:      "Social Pay",
+		Name:      "SocialPay",
 		AccessKey: "cc4025404f1b43d5a066d003b6b816ce",
 		SecretKey: "4a5ea5ca21984ad7a40a995a66c561d3",
-		From:      "Social Pay",
+		From:      "SocialPay",
 		URL:       "http://api.kmicloud.com/sms/send/v1/otp",
 	}
 }

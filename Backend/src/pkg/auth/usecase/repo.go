@@ -60,16 +60,4 @@ type Repo interface {
 	FindUserUsingPhoneIdentity(phoneId uuid.UUID) (*entity.User, error)
 	StorePasswordIdentity(passwordIdentity entity.PasswordIdentity) error
 	FindPasswordIdentityByUser(userId uuid.UUID) (*entity.PasswordIdentity, error)
-
-	// Two-Factor Authentication
-	GetTwoFactorStatus(userId uuid.UUID) (*entity.TwoFactorStatus, error)
-	EnableTwoFactor(userId uuid.UUID) error
-	DisableTwoFactor(userId uuid.UUID) error
-	StoreTwoFactorCode(code entity.TwoFactorCode) error
-	FindTwoFactorCode(userId uuid.UUID, code string) (*entity.TwoFactorCode, error)
-	MarkTwoFactorCodeAsUsed(codeId uuid.UUID) error
-	CleanupExpiredTwoFactorCodes() error
-
-	// Get user with phone information
-	FindUserWithPhoneById(userId uuid.UUID) (*entity.User, error)
 }

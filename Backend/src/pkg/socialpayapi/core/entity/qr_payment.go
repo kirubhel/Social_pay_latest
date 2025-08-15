@@ -45,6 +45,8 @@ func (r QRMerchantPaymentRequest) Validate() error {
 			entity.MPESA,
 			entity.TELEBIRR,
 			entity.CBE,
+			entity.KACHA,
+			entity.AWASH,
 		)),
 		validation.Field(&r.Amount, validation.Required, validation.Min(0.01)),
 		validation.Field(&r.MerchantID, validation.Required),
@@ -69,6 +71,6 @@ type QRPaymentResponse struct {
 	// Unique payment reference
 	Reference string `json:"reference_id" example:"PAY123456789"`
 
-	// Socialpay transaction ID
-	SocialPayTransactionID string `json:"Socialpay_transaction_id,omitempty" example:"1234567890"`
+	// SocialPay transaction ID
+	SocialPayTransactionID string `json:"socialpay_transaction_id,omitempty" example:"1234567890"`
 }

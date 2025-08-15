@@ -82,7 +82,6 @@ func (p *GroupedProducer) Stop() {
 		})
 		close(ch)
 	}
-
 	p.log.Info("Kafka producer stopped successfully", nil)
 }
 

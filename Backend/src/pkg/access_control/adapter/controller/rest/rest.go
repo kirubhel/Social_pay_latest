@@ -94,37 +94,6 @@ func New(log *log.Logger, interactor usecase.Interactor, sm *http.ServeMux, auth
 		}
 	})
 
-	sm.HandleFunc("/user/permissions", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			controller.CreatePermission(w, r)
-		}
-	})
-	sm.HandleFunc("/user/permissions/update", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			controller.UpdatePermission(w, r)
-		}
-	})
-	sm.HandleFunc("/user/permissions/delete", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			controller.DeletePermission(w, r)
-		}
-	})
-	sm.HandleFunc("/user/permissions/list", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			controller.ListPermissions(w, r)
-		}
-	})
-	sm.HandleFunc("/user/permissions/view", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			controller.GetSinglePermission(w, r)
-		}
-	})
-
 	// User-Group Assignments
 	sm.HandleFunc("/user/user_groups/assign", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

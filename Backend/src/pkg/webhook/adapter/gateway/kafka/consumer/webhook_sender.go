@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/segmentio/kafka-go"
 	"github.com/socialpay/socialpay/src/pkg/config"
 	"github.com/socialpay/socialpay/src/pkg/shared/logging"
 	"github.com/socialpay/socialpay/src/pkg/webhook/adapter/dto"
 	webhookUsecase "github.com/socialpay/socialpay/src/pkg/webhook/usecase"
+	"github.com/segmentio/kafka-go"
 )
 
 type WebhookSenderWorker struct {
@@ -215,7 +215,7 @@ func (w *WebhookSenderWorker) sendWebhook(url string, payload dto.WebhookEventMe
 		return 0, "", fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Social Pay")
+	req.Header.Set("User-Agent", "SocialPay")
 
 	resp, err := w.client.Do(req)
 	if err != nil {

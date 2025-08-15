@@ -72,8 +72,6 @@ func (p *processor) InitiatePayment(ctx context.Context, apikey string, req *pay
 		"currency":       req.Currency,
 	})
 
-	// Define signed and unsigned fields
-	UNSIGNED_FIELD_NAMES := []string{}
 	SIGNED_FIELD_NAMES := []string{
 		"access_key",
 		"amount",
@@ -103,7 +101,7 @@ func (p *processor) InitiatePayment(ctx context.Context, apikey string, req *pay
 	// Prepare request parameters
 	reqParams := map[string]string{
 		"access_key":                  p.accessKey,
-		"amount":                      fmt.Sprintf("%v", req.Amount),
+		"amount":                      fmt.Sprintf("%.2f", req.Amount),
 		"bill_to_forename":            "NOREAL",
 		"bill_to_surname":             "NAME",
 		"bill_to_email":               "null@cybersource.com",
@@ -120,13 +118,31 @@ func (p *processor) InitiatePayment(ctx context.Context, apikey string, req *pay
 		"reference_number":            deviceFingerprint.String(),
 		"signed_date_time":            time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		"signed_field_names":          strings.Join(SIGNED_FIELD_NAMES, ","),
-		"transaction_type":            "sale",
+		"transaction_type":            "authorization",
 		"transaction_uuid":            req.TransactionID.String(),
-		"unsigned_field_names":        strings.Join(UNSIGNED_FIELD_NAMES, ","),
+		"unsigned_field_names":        "",
 	}
 
 	// Generate signature
 	signature := sign(reqParams, p.secretKey)
+	// Generate signature
+
+	// DEBUG: Log the signature and signed fields
+	keys := make([]string, 0, len(reqParams))
+	for k := range reqParams {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var encodedFields []string
+	for _, k := range keys {
+		encodedFields = append(encodedFields, k+"="+reqParams[k])
+	}
+
+	p.log.Info("Generated Signature", map[string]interface{}{
+		"signature":            signature,
+		"signed_fields":        strings.Join(encodedFields, ","),
+		"secret_key_truncated": p.secretKey[:4] + "..." + p.secretKey[len(p.secretKey)-4:],
+	})
 
 	// Create HTML form
 	htmlContent := fmt.Sprintf(`
@@ -138,7 +154,7 @@ func (p *processor) InitiatePayment(ctx context.Context, apikey string, req *pay
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
 	</head>
 	<body>
-		<form id='payment_form' method='post' action="%s/pay">
+		<form id='payment_form' method='post' action="%s/embedded/pay">
 			<input type='hidden' id='access_key' name='access_key' value='%s' />
 			<input type='hidden' id='amount' name='amount' value='%s' />
 			<input type='hidden' id='bill_to_forename' name='bill_to_forename' value='%s' />
@@ -197,7 +213,6 @@ func (p *processor) InitiatePayment(ctx context.Context, apikey string, req *pay
 	// Save the HTML file
 	fileName := fmt.Sprintf("%s.html", req.TransactionID)
 	filePath := fmt.Sprintf("./public/%s", fileName)
-
 	if err := os.WriteFile(filePath, []byte(htmlContent), 0666); err != nil {
 		p.log.Error("Failed to create payment form", map[string]interface{}{
 			"error": err.Error(),
@@ -207,7 +222,7 @@ func (p *processor) InitiatePayment(ctx context.Context, apikey string, req *pay
 	}
 
 	// Return the URL to the static file
-	paymentURL := fmt.Sprintf("%s/api/v2/static/%s", os.Getenv("APP_URL_V2"), fileName)
+	paymentURL := fmt.Sprintf("%s/api/v2/static/%s", "https://api.socialpay.co", fileName)
 
 	p.log.Info("Payment form created", map[string]interface{}{
 		"url":            paymentURL,
@@ -274,20 +289,55 @@ func (p *processor) InitiateWithdrawal(ctx context.Context, apikey string, req *
 }
 
 func sign(fields map[string]string, secretKey string) string {
-	keys := make([]string, 0, len(fields))
-	for k := range fields {
-		keys = append(keys, k)
+	// Field order MUST match SIGNED_FIELD_NAMES exactly
+	fieldOrder := []string{
+		"access_key",
+		"amount",
+		"bill_to_address_city",
+		"bill_to_address_country",
+		"bill_to_address_line1",
+		"bill_to_address_postal_code",
+		"bill_to_address_state",
+		"bill_to_email",
+		"bill_to_forename",
+		"bill_to_surname",
+		"bill_to_phone",
+		"currency",
+		"locale",
+		"payment_method",
+		"profile_id",
+		"reference_number",
+		"signed_date_time",
+		"signed_field_names",
+		"transaction_type",
+		"transaction_uuid",
+		"unsigned_field_names",
 	}
-	sort.Strings(keys)
 
 	var encodedFields []string
-	for _, k := range keys {
-		encodedFields = append(encodedFields, k+"="+fields[k])
+	for _, k := range fieldOrder {
+		if val, exists := fields[k]; exists {
+			encodedFields = append(encodedFields, k+"="+val)
+		}
 	}
 
+	// Debug log the exact string being signed
+	signData := strings.Join(encodedFields, ",")
+	fmt.Printf("[DEBUG] Signing data: %s\n", signData)
+
 	h := hmac.New(sha256.New, []byte(secretKey))
-	h.Write([]byte(strings.Join(encodedFields, ",")))
+	h.Write([]byte(signData))
 	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
 
+	// Debug log the generated signature
+	fmt.Printf("[DEBUG] Generated signature: %s\n", signature)
+
 	return signature
+}
+
+func (p *processor) QueryTransactionStatus(ctx context.Context, transactionID string) (*payment.TransactionStatusQueryResponse, error) {
+	p.log.Info("Querying Cybersource transaction status", map[string]interface{}{
+		"transaction_id": transactionID,
+	})
+	return nil, nil
 }

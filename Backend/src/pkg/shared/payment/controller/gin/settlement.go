@@ -581,18 +581,30 @@ func (h *SettlementHandler) HandleEthSwitchSettlement(c *gin.Context) {
 		"transaction_id": transactionID.String(),
 	})
 
-	// Create generic callback request
+	// Safe mapping with fallback
+	status, ok := etswitch.ETHStatusToConstant[res.Operation]
+	if !ok {
+		h.log.Warn("Received unknown EthSwitch operation, defaulting to FAILED", map[string]interface{}{
+			"operation": res.Operation,
+		})
+		status = "FAILED"
+	}
+
 	callbackReq := &payment.CallbackRequest{
 		TransactionID: transactionID,
-		Status:        txEntity.TransactionStatus(etswitch.ETHStatusToConstant[res.Operation]),
+		Status:        txEntity.TransactionStatus(status),
 		Metadata: map[string]interface{}{
 			"reason_code": res.Status,
-			"decision":    etswitch.ETHStatusToConstant[res.Operation],
+			"decision":    status,
 		},
 	}
 
 	if err := processor.SettlePayment(c.Request.Context(), callbackReq); err != nil {
 		h.log.Error("Settlement failed", map[string]interface{}{"error": err.Error()})
+
+		// Updating the transaction status for failed scenario
+		h.usecase.ProcessTransactionStatus(c.Request.Context(), transactionID, status)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Settlement failed"})
 		return
 	}
@@ -629,6 +641,7 @@ func ParseOrderNumberToUUID(an132 string) (uuid.UUID, error) {
 
 // EthSwitchCallback represents the callback data from ethswitch
 type EthSwitchCallback struct {
+	PaymentWay  string `jsonL:"PaymentWay"`
 	OrderNumber string `json:"orderNumber"`
 	MdOrder     string `json:"mdOrder"`
 	Operation   string `json:"operation"`

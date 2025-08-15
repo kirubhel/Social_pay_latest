@@ -1,0 +1,143 @@
+{
+  "operations": [
+    {
+      "name": "CREATE",
+      "description": "Create operation"
+    },
+    {
+      "name": "READ",
+      "description": "Read operation"
+    },
+    {
+      "name": "UPDATE",
+      "description": "Update operation"
+    },
+    {
+      "name": "DELETE",
+      "description": "Delete operation"
+    },
+    {
+      "name": "APPROVE",
+      "description": "Approve operation"
+    },
+    {
+      "name": "REJECT",
+      "description": "Reject operation"
+    },
+    {
+      "name": "PROCESS",
+      "description": "Process operation"
+    },
+    {
+      "name": "EXPORT",
+      "description": "Export operation"
+    },
+    {
+      "name": "OWNER_ALL",
+      "description": "Owner-level all operation"
+    },
+    {
+      "name": "ADMIN_READ",
+      "is_admin_operation": true,
+      "description": "Admin-level read operation"
+    },
+    {
+      "name": "ADMIN_CREATE",
+      "is_admin_operation": true,
+      "description": "Admin-level create operation"
+    },
+    {
+      "name": "ADMIN_UPDATE",
+      "is_admin_operation": true,
+      "description": "Admin-level update operation"
+    },
+    {
+      "name": "ADMIN_DELETE",
+      "is_admin_operation": true,
+      "description": "Admin-level delete operation"
+    },
+    {
+      "name": "ADMIN_ALL",
+      "is_admin_operation": true,
+      "description": "Admin-level all operation"
+    }
+  ],
+  "resources": [
+    {
+      "name": "transaction",
+      "description": "Transaction management"
+    },
+    {
+      "name": "merchant",
+      "description": "Merchant management"
+    },
+    {
+      "name": "user",
+      "description": "User management"
+    },
+    {
+      "name": "admin_wallet",
+      "description": "Admin wallet operations"
+    },
+    {
+      "name": "ip_whitelist",
+      "description": "IP whitelist management"
+    },
+    {
+      "name": "api_key",
+      "description": "API key management"
+    },
+    {
+      "name": "webhook",
+      "description": "Webhook management"
+    },
+    {
+      "name": "analytics",
+      "description": "Analytics and reports"
+    },
+    {
+      "name": "commission",
+      "description": "Commission settings"
+    },
+    {
+      "name": "qr",
+      "description": "QR code management"
+    },
+    {
+      "name": "checkout",
+      "description": "Checkout management"
+    },
+    {
+      "name": "notification",
+      "description": "Notification management"
+    },
+    {
+      "name": "team",
+      "description": "Team member management"
+    },
+    {
+      "name": "role",
+      "description": "Role and permission management"
+    },
+    {
+      "name": "system_settings",
+      "description": "System configuration and settings"
+    },
+    {
+      "name": "audit_log",
+      "description": "Audit log and activity tracking"
+    },
+    {
+      "name": "wallet",
+      "description": "Wallet management"
+    },
+    {
+      "name": "owner_all",
+      "description": "Owner-level all resource for merchant "
+    },
+    {
+      "name": "ADMIN_ALL",
+      "description": "Admin-level all resource for admin"
+    }
+  ]
+} 

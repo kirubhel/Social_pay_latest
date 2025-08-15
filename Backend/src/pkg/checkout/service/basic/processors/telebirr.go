@@ -8,15 +8,15 @@ import (
 
 func ProcessTeleBirr(id string, amount float64, phone string) error {
 
-	url := "https://api.Socialpay.co/account/telebirr/ussd-push"
+	url := "https://api.socialpay.co/account/telebirr/ussd-push"
 	method := http.MethodPost
 
 	pld := map[string]interface{}{
 		"CommandID":                "InitTrans_BuyGoodsForCustomer",
 		"OriginatorConversationID": id,
-		"ThirdPartyID":             "Social-Pay",
+		"ThirdPartyID":             "social-Pay",
 		"Password":                 "jBq7JfxTs0C5ji0VPKakmRSgBbeh4NO0juJ1LXnPIOw=",
-		"ResultURL":                "https://api.Socialpay.co/api/v1/checkout/transactions/notify",
+		"ResultURL":                "https://api.socialpay.co/api/v1/checkout/transactions/notify",
 		"Timestamp":                "20150101010101",
 		"IdentifierType":           12,
 		"Identifier":               "51437701",

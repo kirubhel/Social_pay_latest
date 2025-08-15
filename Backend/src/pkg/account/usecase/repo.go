@@ -8,7 +8,6 @@ import (
 
 type Repo interface {
 	UpdateUserRepo(users entity.User2) (entity.User2, error)
-	GetUserProfile(userID uuid.UUID) (entity.User2, error)
 	StoreTransactionSession(preSession entity.TransactionSession) error
 	UpdateTransaction(id uuid.UUID) error
 	// Account

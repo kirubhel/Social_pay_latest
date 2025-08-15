@@ -41,3 +41,5 @@
 2025-07-03 11:08:40 - Services started successfully
 2025-07-03 11:08:50 - Health checks completed
 2025-07-03 11:08:50 - Deployment completed successfully
+2025-08-08 11:38:31 - Starting deployment with options: backup=false, cleanup=false, production=false
+2025-08-08 11:38:31 - Backup created: ./backups/socialpay-backup-20250808-113831.tar.gz

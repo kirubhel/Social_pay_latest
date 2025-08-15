@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: socialpay-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: socialpay-frontend
+  template:
+    metadata:
+      labels:
+        app: socialpay-frontend
+    spec:
+      containers:
+      - name: socialpay-frontend
+        image: ashenafii/socialpay-frontend:v1.0
+        ports:
+        - containerPort: 8004
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"

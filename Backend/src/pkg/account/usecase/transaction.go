@@ -45,14 +45,6 @@ func (uc Usecase) UpdateUserUsecase(users entity.User2) (entity.User2, error) {
 	return users, err
 }
 
-func (uc Usecase) GetUserProfile(userID uuid.UUID) (entity.User2, error) {
-	user, err := uc.repo.GetUserProfile(userID)
-	if err != nil {
-		return entity.User2{}, err
-	}
-	return user, nil
-}
-
 func (uc Usecase) InitPreSession(txtId uuid.UUID) (entity.TransactionSession, error) {
 
 	uc.log.SetPrefix("[AUTH] [USECASE] [InitPreSession] ")
@@ -818,7 +810,7 @@ func (uc Usecase) VerifyTransaction(UserId uuid.UUID, token string, challenge en
 							CreditAccount:     "01320209107500",
 							CommissionAmount:  0,
 							AwashAccountName:  sender.Detail.(entity.BankAccount).Holder.Name,
-							CreditAccountName: "Social Pay",
+							CreditAccountName: "SocialPay",
 						})
 
 						uc.log.Println(txt.Reference)
@@ -919,7 +911,7 @@ func (uc Usecase) VerifyTransaction(UserId uuid.UUID, token string, challenge en
 							Username string `json:"username"`
 							Password string `json:"password"`
 						}{
-							Username: "Social Pay",
+							Username: "SocialPay",
 							Password: "e3i1OehzfV0Iz16asdTjZEbYG4F769Vx8Unuo5chkM9V",
 						})
 
@@ -1217,8 +1209,8 @@ func (uc Usecase) VerifyTransaction(UserId uuid.UUID, token string, challenge en
 							Username string `json:"username"`
 							Password string `json:"password"`
 						}{
-							Username: "Socialpay@bunnabanksc.com",
-							Password: "Social@1234",
+							Username: "socialpay@bunnabanksc.com",
+							Password: "social@1234",
 						})
 
 						req, err := http.NewRequest(http.MethodPost, "http://10.1.13.12/auth/login", bytes.NewBuffer(serBody))
@@ -1881,7 +1873,7 @@ func (uc Usecase) CreateTransaction(userId uuid.UUID, from uuid.UUID, to uuid.UU
 							CreditAccount:     "01320209107500",
 							CommissionAmount:  0,
 							AwashAccountName:  sender.Detail.(entity.BankAccount).Holder.Name,
-							CreditAccountName: "Social Pay",
+							CreditAccountName: "SocialPay",
 						})
 
 						uc.log.Println(txn.Reference)
@@ -1982,7 +1974,7 @@ func (uc Usecase) CreateTransaction(userId uuid.UUID, from uuid.UUID, to uuid.UU
 							Username string `json:"username"`
 							Password string `json:"password"`
 						}{
-							Username: "Social Pay",
+							Username: "SocialPay",
 							Password: "e3i1OehzfV0Iz16asdTjZEbYG4F769Vx8Unuo5chkM9V",
 						})
 
@@ -2280,8 +2272,8 @@ func (uc Usecase) CreateTransaction(userId uuid.UUID, from uuid.UUID, to uuid.UU
 							Username string `json:"username"`
 							Password string `json:"password"`
 						}{
-							Username: "Socialpay@bunnabanksc.com",
-							Password: "Social@1234",
+							Username: "socialpay@bunnabanksc.com",
+							Password: "social@1234",
 						})
 
 						req, err := http.NewRequest(http.MethodPost, "http://10.1.13.12/auth/login", bytes.NewBuffer(serBody))

@@ -81,7 +81,7 @@ func (uc Usecase) ListUsers() ([]entity.User, error) {
 
 func (uc Usecase) ListUserPermissions(userID uuid.UUID) ([]entity.Permission, error) {
 	const ErrFailedToListUserPermissions = "FAILED_TO_LIST_USER_PERMISSIONS"
-	permissions, err := uc.repo.ListUserPermissions(userID)
+	permissions, err := uc.repo.ListUserPermissions(userID, "commission")
 	if err != nil {
 		uc.log.Println("LIST USER PERMISSIONS ERROR: Failed to retrieve user permissions")
 		return nil, Error{

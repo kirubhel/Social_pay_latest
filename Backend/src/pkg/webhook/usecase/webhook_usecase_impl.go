@@ -9,6 +9,7 @@ import (
 	"github.com/socialpay/socialpay/src/pkg/config"
 
 	"github.com/google/uuid"
+	commission_usecase "github.com/socialpay/socialpay/src/pkg/commission/usecase"
 	tipService "github.com/socialpay/socialpay/src/pkg/socialpayapi/usecase"
 	notificationUsecase "github.com/socialpay/socialpay/src/pkg/notifications/usecase"
 	"github.com/socialpay/socialpay/src/pkg/shared/logging"
@@ -24,7 +25,8 @@ import (
 type WebhookUseCaseImpl struct {
 	transactionRepo     transactionRepo.TransactionRepository
 	callbackRepo        webhookRepo.CallbackRepository
-	walletUsecase       walletUsecase.WalletUseCase
+	walletUsecase       walletUsecase.MerchantWalletUsecase
+	adminWalletUsecase  walletUsecase.AdminWalletUsecase
 	log                 logging.Logger
 	producer            *producer.GroupedProducer
 	sendProducer        *producer.GroupedProducer
@@ -36,7 +38,9 @@ func NewWebhookUseCase(
 	cfg *config.Config,
 	transactionRepo transactionRepo.TransactionRepository,
 	callbackRepo webhookRepo.CallbackRepository,
-	walletUsecase walletUsecase.WalletUseCase,
+	walletUsecase walletUsecase.MerchantWalletUsecase,
+	adminWalletUsecase walletUsecase.AdminWalletUsecase,
+	commissionUseCase commission_usecase.CommissionUseCase,
 	tipService tipService.TipProcessingService,
 	transactionNotifier *notificationUsecase.TransactionNotifier,
 ) WebhookUseCase {
@@ -58,6 +62,7 @@ func NewWebhookUseCase(
 		transactionRepo:     transactionRepo,
 		callbackRepo:        callbackRepo,
 		walletUsecase:       walletUsecase,
+		adminWalletUsecase:  adminWalletUsecase,
 		log:                 log,
 		producer:            dispatchProducer,
 		sendProducer:        sendProducer,
@@ -156,15 +161,50 @@ func (uc *WebhookUseCaseImpl) HandlePaymentStatusUpdate(ctx context.Context, msg
 	})
 
 	// Update transaction status
+	// Update transaction status, comment, provider data, and provider TX ID
 	txnStatus := txEntity.TransactionStatus(msg.Status)
-	if err := uc.transactionRepo.UpdateStatus(ctx, parsedTxnID, txnStatus); err != nil {
-		uc.log.Error("failed to update transaction status", map[string]interface{}{
+
+	// Prepare update parameters
+	updateParams := map[string]interface{}{
+		"comment":        msg.Message, // Message from STDCallbackRequest
+		"provider_tx_id": msg.ProviderTxID,
+	}
+
+	// Marshal provider data
+	providerData, err := json.Marshal(map[string]interface{}{"data": msg.ProviderData})
+	if err != nil {
+		uc.log.Error("failed to marshal provider data", map[string]interface{}{
+			"error": err,
+		})
+		return fmt.Errorf("failed to marshal provider data: %w", err)
+	}
+	updateParams["provider_data"] = providerData
+
+	if err := uc.transactionRepo.UpdateTransactionWithProviderData(ctx, parsedTxnID, updateParams); err != nil {
+		uc.log.Error("failed to update transaction with provider data", map[string]interface{}{
 			"error":         err,
 			"transactionID": msg.TransactionID,
 			"status":        msg.Status,
 		})
-		return fmt.Errorf("failed to update transaction status: %w", err)
+		return fmt.Errorf("failed to update transaction with provider data: %w", err)
 	}
+
+	uc.log.Info("transaction updated with provider data", map[string]interface{}{
+		"transactionID": msg.TransactionID,
+		"providerData":  msg.ProviderData,
+		"providerTxID":  msg.ProviderTxID,
+	})
+
+	err = uc.transactionRepo.UpdateStatus(ctx, txn.Id, txnStatus)
+	if err != nil {
+		uc.log.Error("failed to update transaction status", map[string]interface{}{
+			"error": err,
+			"txnID": txn.Id,
+		})
+	}
+
+	// Update the transaction object with the new status for subsequent operations
+	txn.Status = txnStatus
 
 	uc.log.Info("transaction status updated successfully", map[string]interface{}{
 		"type":      txn.Type,
@@ -176,6 +216,96 @@ func (uc *WebhookUseCaseImpl) HandlePaymentStatusUpdate(ctx context.Context, msg
 	uc.log.Info("sending transaction status notifications", map[string]interface{}{
 		"transactionID": msg.TransactionID,
 		"status":        txnStatus,
+	})
+
+	// Parse merchant ID
+	merchantID, err := uuid.Parse(msg.MerchantID)
+	if err != nil {
+		uc.log.Error("invalid merchant ID", map[string]interface{}{
+			"error":      err,
+			"merchantID": msg.MerchantID,
+		})
+		return fmt.Errorf("invalid merchant ID: %w", err)
+	}
+
+	// Parse user ID for validation
+	_, err = uuid.Parse(msg.UserID)
+	if err != nil {
+		uc.log.Error("invalid user ID", map[string]interface{}{
+			"error":  err,
+			"userID": msg.UserID,
+		})
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	uc.log.Info("Processing Wallet", map[string]interface{}{
+		"merchantID": merchantID,
+		"type":       txn.Type,
+		"status":     txnStatus,
+	})
+
+	if txn.Type == txEntity.WITHDRAWAL {
+		// Process withdrawal transaction using transaction-safe methods
+		isSuccess := txnStatus == txEntity.SUCCESS
+		// FIXED: Include admin amount and remove separate admin wallet call
+		if err := uc.walletUsecase.ProcessTransactionStatus(ctx, merchantID, txn.MerchantNet, txn.AdminNet, isSuccess, true); err != nil {
+			uc.log.Error("failed to process withdrawal status", map[string]interface{}{
+				"error":      err,
+				"merchantID": msg.MerchantID,
+				"amount":     msg.TotalAmount,
+				"status":     txnStatus,
+			})
+			return fmt.Errorf("failed to process withdrawal status: %w", err)
+		}
+	} else if txnStatus == txEntity.SUCCESS {
+		// Process deposit transaction using transaction-safe methods
+		// FIXED: Include admin amount and remove separate admin wallet call
+		uc.log.Info("Processing deposit begin", map[string]interface{}{
+			"merchantID": merchantID,
+			"amount":     txn.MerchantNet,
+			"status":     txnStatus,
+		})
+		if err := uc.walletUsecase.ProcessTransactionStatus(ctx, merchantID, txn.MerchantNet, txn.AdminNet, true, false); err != nil {
+			uc.log.Error("failed to process deposit status", map[string]interface{}{
+				"error":      err,
+				"merchantID": msg.MerchantID,
+				"amount":     txn.MerchantNet,
+				"status":     txnStatus,
+			})
+			return fmt.Errorf("failed to process deposit status: %w", err)
+		}
+		uc.log.Info("Processing deposit after", map[string]interface{}{
+			"merchantID": merchantID,
+			"amount":     txn.MerchantNet,
+			"status":     txnStatus,
+		})
+
+		// Process tips if applicable
+		uc.log.Info("Checking if transaction has tip", map[string]interface{}{
+			"transactionID": txn.Id,
+			"hasTip":        txn.HasTip,
+		})
+		if txn.HasTip && !txn.TipProcessed {
+			uc.log.Info("Processing tip", map[string]interface{}{
+				"transactionID": txn.Id,
+			})
+			uc.tipService.ProcessTipForTransaction(ctx, txn.Id)
+		}
+
+		if err := uc.transactionRepo.Update(ctx, txn); err != nil {
+			uc.log.Error("failed to update transaction with commission details", map[string]interface{}{
+				"error": err,
+				"txnID": txn.Id,
+			})
+			return fmt.Errorf("failed to update transaction with commission details: %w", err)
+		}
+	}
+
+	// Transaction amount and wallet updated successfully
+	uc.log.Info("Transaction amount and wallet updated successfully", map[string]interface{}{
+		"transactionID": txn.Id,
+		"amount":        txn.MerchantNet,
+		"wallet":        txn.MerchantId,
 	})
 
 	if uc.transactionNotifier != nil {
@@ -197,55 +327,6 @@ func (uc *WebhookUseCaseImpl) HandlePaymentStatusUpdate(ctx context.Context, msg
 		})
 	}
 
-	// Parse merchant ID
-	merchantID, err := uuid.Parse(msg.MerchantID)
-	if err != nil {
-		uc.log.Error("invalid merchant ID", map[string]interface{}{
-			"error":      err,
-			"merchantID": msg.MerchantID,
-		})
-		return fmt.Errorf("invalid merchant ID: %w", err)
-	}
-	uc.log.Info("Processing Wallet", map[string]interface{}{
-		"merchantID": merchantID,
-		"type":       txn.Type,
-		"status":     txnStatus,
-	})
-	if txn.Type == txEntity.WITHDRAWAL {
-		// Process withdrawal transaction using transaction-safe methods
-		isSuccess := txnStatus == txEntity.SUCCESS
-		if err := uc.walletUsecase.ProcessTransactionStatus(ctx, merchantID, msg.TotalAmount, isSuccess, true); err != nil {
-			uc.log.Error("failed to process withdrawal status", map[string]interface{}{
-				"error":      err,
-				"merchantID": msg.MerchantID,
-				"amount":     msg.TotalAmount,
-				"status":     txnStatus,
-			})
-			return fmt.Errorf("failed to process withdrawal status: %w", err)
-		}
-	} else if txnStatus == txEntity.SUCCESS {
-		// Process deposit transaction using transaction-safe methods
-		if err := uc.walletUsecase.ProcessTransactionStatus(ctx, merchantID, txn.MerchantNet, true, false); err != nil {
-			uc.log.Error("failed to process deposit status", map[string]interface{}{
-				"error":      err,
-				"merchantID": msg.MerchantID,
-				"amount":     txn.MerchantNet,
-				"status":     txnStatus,
-			})
-			return fmt.Errorf("failed to process deposit status: %w", err)
-		}
-		uc.log.Info("Checking if transaction has tip", map[string]interface{}{
-			"transactionID": txn.Id,
-			"hasTip":        txn.HasTip,
-		})
-		if txn.HasTip && !txn.TipProcessed {
-			uc.log.Info("Processing tip", map[string]interface{}{
-				"transactionID": txn.Id,
-			})
-			uc.tipService.ProcessTipForTransaction(ctx, txn.Id)
-		}
-	}
-
 	uc.log.Info("preparing webhook message for Kafka", map[string]interface{}{
 		"callbackURL":   txn.CallbackURL,
 		"transactionID": txn.Id,
@@ -254,17 +335,17 @@ func (uc *WebhookUseCaseImpl) HandlePaymentStatusUpdate(ctx context.Context, msg
 
 	// Create event for Kafka
 	event := webhookDto.WebhookEventMerchant{
-		Event:          txn.Type,
+		Event:        txn.Type,
 		SocialPayTxnID: txn.Id.String(),
-		ReferenceId:    txn.Reference,
-		Status:         string(txnStatus),
-		Amount:         fmt.Sprintf("%f", txn.MerchantNet),
-		CallbackURL:    txn.CallbackURL,
-		Timestamp:      time.Now(),
-		ProviderTxID:   msg.ProviderTxID,
-		Message:        msg.Message,
-		MerchantID:     msg.MerchantID,
-		UserID:         msg.UserID,
+		ReferenceId:  txn.Reference,
+		Status:       string(txnStatus),
+		Amount:       fmt.Sprintf("%f", txn.MerchantNet),
+		CallbackURL:  txn.CallbackURL,
+		Timestamp:    time.Now(),
+		ProviderTxID: msg.ProviderTxID,
+		Message:      msg.Message,
+		MerchantID:   msg.MerchantID,
+		UserID:       msg.UserID,
 	}
 
 	bytes, err := json.Marshal(event)
@@ -488,12 +569,27 @@ func (uc *WebhookUseCaseImpl) GetCallbackLogByID(ctx context.Context, id uuid.UU
 	return log, nil
 }
 
-func (uc *WebhookUseCaseImpl) GetCallbackLogsByMerchantID(ctx context.Context, merchantID uuid.UUID) ([]*webhook.CallbackLog, error) {
+func (uc *WebhookUseCaseImpl) GetCallbackLogsByMerchantID(ctx context.Context, merchantID uuid.UUID, pagination *txEntity.Pagination) ([]*webhook.CallbackLog, error) {
 	uc.log.Info("getting callback logs by merchant ID", map[string]interface{}{
 		"merchantID": merchantID,
+		"page":       pagination.Page,
+		"page_size":  pagination.PageSize,
 	})
 
-	logs, err := uc.callbackRepo.GetByMerchantID(ctx, merchantID)
+	if pagination == nil {
+		uc.log.Error("pagination is nil", nil)
+		return nil, fmt.Errorf("pagination parameters are required")
+	}
+
+	if err := pagination.Validate(); err != nil {
+		uc.log.Error("pagination validation error", map[string]interface{}{
+			"error":      err,
+			"pagination": pagination,
+		})
+		return nil, fmt.Errorf("invalid pagination parameters: %w", err)
+	}
+
+	logs, err := uc.callbackRepo.GetByMerchantID(ctx, merchantID, pagination)
 	if err != nil {
 		uc.log.Error("failed to get callback logs", map[string]interface{}{
 			"error":      err,
@@ -505,6 +601,8 @@ func (uc *WebhookUseCaseImpl) GetCallbackLogsByMerchantID(ctx context.Context, m
 	uc.log.Info("callback logs retrieved successfully", map[string]interface{}{
 		"merchantID": merchantID,
 		"count":      len(logs),
+		"page":       pagination.Page,
+		"page_size":  pagination.PageSize,
 	})
 
 	return logs, nil

@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_V2_URL || 'http://localhost:8080/api/v2';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_V2_URL || 'http://196.190.251.194:8082/api/v2';
 
 export class V2ClientError extends Error {
   constructor(

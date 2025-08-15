@@ -77,4 +77,6 @@ type TransactionNotificationData struct {
 	Reference       string  `json:"reference"`
 	Timestamp       string  `json:"timestamp"`
 	TransactionType string  `json:"transaction_type"`
+	TipAmount       float64 `json:"tip_amount"`
+	PhoneNumber     string  `json:"phone_number"`
 }

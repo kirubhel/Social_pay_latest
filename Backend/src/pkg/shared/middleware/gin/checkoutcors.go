@@ -21,8 +21,8 @@ func CheckoutCors(c *gin.Context) {
 		allowedOrigins = []string{
 			"http://localhost:3000",
 			"https://localhost:3000",
-			"https://checkout.Socialpay.co",
-			"http://checkout.Socialpay.co", // for development
+			"https://checkout.socialpay.co",
+			"http://checkout.socialpay.co", // for development
 		}
 	}
 	log.Println("allowedOrgins:", allowedOrigins)

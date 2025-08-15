@@ -291,7 +291,7 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 	}
 
 	doc.Status = "pending"
-	// helper function
+	// helper function 
 	handleUpload := func(fieldName, docType, errorMsg string, m *entity.Merchant) bool {
 		allowedExtensions := map[string]bool{
 			".pdf":  true,
@@ -299,13 +299,13 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 			".jpeg": true,
 			".png":  true,
 		}
-
+	
 		allowedMimeTypes := map[string]bool{
 			"application/pdf": true,
 			"image/jpeg":      true,
 			"image/png":       true,
 		}
-
+	
 		file, fileHeader, err := r.FormFile(fieldName)
 		if err == http.ErrMissingFile {
 			if m.IsBettingClient && fieldName == "betting_certificate" {
@@ -322,7 +322,7 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 			}
 			return true // Optional file, skip silently
 		}
-
+	
 		if err != nil {
 			controller.log.Printf("[UserID: %s] FILE UPLOAD ERR:: %s", session.User.Id, err.Error())
 			SendJSONResponse(w, MerchantResponse{
@@ -337,7 +337,7 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 			return false
 		}
 		defer file.Close()
-
+	
 		if fileHeader.Size > 10*1024*1024 {
 			SendJSONResponse(w, MerchantResponse{
 				Success: false,
@@ -350,7 +350,7 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 			}, http.StatusBadRequest)
 			return false
 		}
-
+	
 		// Read first 512 bytes to detect MIME type
 		buffer := make([]byte, 512)
 		_, err = file.Read(buffer)
@@ -367,18 +367,18 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 			}, http.StatusInternalServerError)
 			return false
 		}
-
+	
 		// Reset file reader
 		_, _ = file.Seek(0, io.SeekStart)
-
+	
 		// Detect content type
 		mimeType := http.DetectContentType(buffer)
 		log.Println("Detected MIME type:", mimeType)
-
+	
 		// Extract extension
 		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 		log.Println("File extension:", ext)
-
+	
 		// Validate either by extension or MIME type
 		if ext == "" || !allowedExtensions[ext] {
 			if !allowedMimeTypes[mimeType] {
@@ -394,10 +394,10 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 				return false
 			}
 		}
-
+	
 		doc.DocumentType = docType
 		doc.CreatedAt = time.Now()
-
+	
 		if err := controller.interactor.AddDocument(r.Context(), file, *fileHeader, doc); err != nil {
 			SendJSONResponse(w, MerchantResponse{
 				Success: false,
@@ -406,7 +406,7 @@ func (controller Controller) UploadDocument(w http.ResponseWriter, r *http.Reque
 			}, errors.MapErrorToHTTPStatus(err))
 			return false
 		}
-
+	
 		return true
 	}
 	if !handleUpload("tin", "tin", "ERROR UPLOADING TIN DOCUMENT", m) {
@@ -654,32 +654,25 @@ func (controller Controller) GetMerchantBusinessInformations(w http.ResponseWrit
 		return
 	}
 
-	// Get the merchant details using the user ID
-	merchantDetails, err := controller.interactor.GetMerchantDetails(session.User.Id)
+
+	// Verify merchant exists and belongs to user
+	merchant, err := controller.interactor.GetMerchantDetails(session.User.Id)
 	if err != nil {
 		SendJSONResponse(w, Response{
 			Success: false,
-			Error:   &errors.Error{Type: "DATABASE_ERROR", Message: "Failed to retrieve merchant details"},
-		}, http.StatusInternalServerError)
+			Error:   &errors.Error{Type: "NOT_FOUND", Message: "Merchant not found"},
+		}, http.StatusNotFound)
 		return
 	}
 
-	// Check if merchant details is nil (no merchant profile exists)
-	if merchantDetails == nil {
-		SendJSONResponse(w, MerchantsResponse{
-			Success: true,
-			Message: "No merchant profile found for this user",
-			Data:    nil,
-		}, http.StatusOK)
-		return
-	}
 
 	SendJSONResponse(w, MerchantsResponse{
 		Success: true,
 		Message: "Merchant detail data fetched successfully",
-		Data:    merchantDetails,
+		Data: merchant,
 	}, http.StatusOK)
 }
+
 
 func (controller Controller) DeleteMerchant(w http.ResponseWriter, r *http.Request) {
 	controller.log.SetPrefix("[MERCHANT] [CONTROLLER] [DELETE] ")

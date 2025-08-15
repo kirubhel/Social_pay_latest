@@ -6,9 +6,9 @@ type AccountType string
 
 const (
 	SOCIALPAY AccountType = "SOCIALPAY"
-	BANK      AccountType = "BANK"
-	CARD      AccountType = "CARD"
-	WALLET    AccountType = "WALLET"
+	BANK    AccountType = "BANK"
+	CARD    AccountType = "CARD"
+	WALLET  AccountType = "WALLET"
 )
 
 type Gateway struct {

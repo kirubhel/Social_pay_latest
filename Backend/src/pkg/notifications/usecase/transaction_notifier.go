@@ -40,28 +40,37 @@ func (tn *TransactionNotifier) NotifyTransactionStatus(ctx context.Context, tran
 	tn.log.Info("[TransactionNotifier] Processing transaction notification", map[string]interface{}{
 		"transactionID": transaction.Id,
 	})
+	var tipAmount = 0.0
+	if transaction.TipAmount != nil {
+		tipAmount = *transaction.TipAmount
+	}
 
 	var recipients []NotificationRecipient
 	transactionData := entity.TransactionNotificationData{
 		TransactionID:   transaction.Id.String(),
-		Amount:          transaction.Amount,
+		Amount:          transaction.BaseAmount,
 		Currency:        transaction.Currency,
 		Status:          status,
 		Reference:       transaction.Reference,
 		Timestamp:       time.Now().Format("2006-01-02 15:04:05"),
 		TransactionType: string(transaction.Type),
+		TipAmount:       tipAmount,
+		PhoneNumber:     transaction.PhoneNumber,
 	}
 
 	// For customers/payers: only use phone number from transaction without fetching user data
 	if transaction.PhoneNumber != "" {
 		// We don't have customer name, so we'll use "Customer" as a generic name
 		transactionData.CustomerName = "Customer"
-
+		role := "payer"
+		if transaction.Type == txEntity.WITHDRAWAL {
+			role = "recipient"
+		}
 		recipients = append(recipients, NotificationRecipient{
 			Type:       entity.TypeSMS,
 			Identifier: transaction.PhoneNumber,
 			Name:       "Customer", // Generic name since we don't fetch customer data
-			Role:       "payer",
+			Role:       role,
 		})
 		tn.log.Info("[TransactionNotifier] Added payer", map[string]interface{}{
 			"phoneNumber": transaction.PhoneNumber,
@@ -71,9 +80,6 @@ func (tn *TransactionNotifier) NotifyTransactionStatus(ctx context.Context, tran
 	// For merchants: fetch merchant information if transaction has merchant ID
 	if transaction.MerchantId != uuid.Nil {
 		merchant, err := tn.merchantRepo.GetMerchantDetails(ctx, transaction.MerchantId)
-		tn.log.Info("[TransactionNotifier] Merchant details", map[string]interface{}{
-			"merchant": merchant,
-		})
 		if err != nil {
 			tn.log.Error("[TransactionNotifier] Failed to get merchant details", map[string]interface{}{
 				"error": err,
@@ -81,6 +87,9 @@ func (tn *TransactionNotifier) NotifyTransactionStatus(ctx context.Context, tran
 			// Continue without merchant notification rather than failing
 		} else if merchant != nil {
 			// Access fields from the nested Merchant struct
+			tn.log.Info("[TransactionNotifier] Merchant details", map[string]interface{}{
+				"merchant": merchant,
+			})
 			merchantName := ""
 			if merchant.Merchant.TradingName != nil && *merchant.Merchant.TradingName != "" {
 				merchantName = *merchant.Merchant.TradingName
@@ -102,12 +111,16 @@ func (tn *TransactionNotifier) NotifyTransactionStatus(ctx context.Context, tran
 				merchantPhone = merchant.Contacts[0].PhoneNumber
 			}
 
+			role := "merchant_recipient"
+			if transaction.Type == txEntity.WITHDRAWAL {
+				role = "merchant_sender"
+			}
 			if merchantPhone != "" {
 				recipients = append(recipients, NotificationRecipient{
 					Type:       entity.TypeSMS,
 					Identifier: merchantPhone,
 					Name:       merchantName,
-					Role:       "merchant",
+					Role:       role,
 				})
 				tn.log.Info("[TransactionNotifier] Added merchant", map[string]interface{}{
 					"merchantName":  merchantName,

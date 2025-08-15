@@ -21,7 +21,7 @@ type Config struct {
 		MaxRetries     int
 		RetryIntervals []time.Duration
 	}
-}
+}	
 
 func Load() (*Config, error) {
 	cfg := &Config{}

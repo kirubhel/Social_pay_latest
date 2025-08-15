@@ -30,44 +30,11 @@ ORDER BY created_at DESC;
 -- name: GetCallbackLogsByMerchantID :many
 SELECT * FROM webhook.callback_logs
 WHERE merchant_id = $1
-ORDER BY created_at DESC;
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
 
 -- name: GetAllCallbackLogs :many
 SELECT * FROM webhook.callback_logs
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
-
--- name: CreateMerchantWallet :exec
-INSERT INTO merchant.wallet (
-    id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at
-) VALUES (
-    $1, $2, $3, $4, $5, $6, NOW(), NOW()
-);
-
--- name: GetMerchantWalletByUserID :one
-SELECT * FROM merchant.wallet
-WHERE user_id = $1;
-
--- name: UpdateMerchantWallet :exec
-UPDATE merchant.wallet
-SET amount = $2,
-    locked_amount = $3,
-    updated_at = NOW()
-WHERE id = $1;
-
--- name: GetMerchantWalletByMerchantID :one
-SELECT * FROM merchant.wallet
-WHERE merchant_id = $1;
-
--- name: GetMerchantWalletByMerchantIDForUpdate :one
-SELECT * FROM merchant.wallet
-WHERE merchant_id = $1
-FOR UPDATE;
-
--- name: UpdateMerchantWalletAmountByMerchantID :exec
-UPDATE merchant.wallet
-SET amount = $2,
-    updated_at = NOW()
-WHERE merchant_id = $1;
-
 

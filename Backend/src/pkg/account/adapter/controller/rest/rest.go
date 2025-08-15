@@ -23,18 +23,10 @@ func New(log *log.Logger, interactor usecase.Interactor, sm *http.ServeMux, auth
 
 	// Handle routing
 	// User Update
-	sm.HandleFunc("/api/v1/user-update", func(w http.ResponseWriter, r *http.Request) {
+	sm.HandleFunc("/user-update", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			controller.UpdateUser(w, r)
-		}
-	})
-
-	// Get User Profile
-	sm.HandleFunc("/api/v1/user-profile", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			controller.GetUserProfile(w, r)
 		}
 	})
 
@@ -156,7 +148,14 @@ func New(log *log.Logger, interactor usecase.Interactor, sm *http.ServeMux, auth
 			controller.GetRequestHostedTransactionInitiate(w, r)
 		}
 	})
-
+	sm.HandleFunc("/api/accounts/cybersource/hosted/transactions-status", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			controller.CybersourceTransactionStatus(w, r)
+		default:
+			http.Error(w, "Unsupported method", http.StatusMethodNotAllowed)
+		}
+	})
 	sm.HandleFunc("/accounts/transactions-hosted", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:

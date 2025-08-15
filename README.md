@@ -20,7 +20,7 @@ For local development with all services:
 
 ### Local Development
 - Frontend: http://localhost:3000
-- Backend V1: http://localhost:8004
+- Backend V1: http://196.190.251.194:8082
 - Backend V2: http://localhost:8082
 - Swagger: http://localhost:8082/swagger/index.html
 

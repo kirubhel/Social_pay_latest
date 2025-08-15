@@ -24,12 +24,11 @@ func (controller Controller) VerifySignUpOTP(w http.ResponseWriter, r *http.Requ
 			Refresh string `json:"refresh"`
 		} `json:"token,omitempty"`
 		User *struct {
-			Id           uuid.UUID `json:"id"`
-			SirName      string    `json:"sir_name,omitempty"`
-			FirstName    string    `json:"first_name"`
-			LastName     string    `json:"last_name,omitempty"`
-			UserType     string    `json:"user_type,omitempty"`
-			TwoFAEnabled bool      `json:"two_fa_enabled"`
+			Id        uuid.UUID `json:"id"`
+			SirName   string    `json:"sir_name,omitempty"`
+			FirstName string    `json:"first_name"`
+			LastName  string    `json:"last_name,omitempty"`
+			UserType  string    `json:"user_type,omitempty"`
 		} `json:"user,omitempty"`
 	}
 
@@ -166,11 +165,7 @@ func (controller Controller) VerifySignUpOTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// OTP verification is only for registration, not login
-	// After OTP verification, user should be able to login directly
-
 	// Return success response with tokens and user details
-	// OTP verification is only for registration, so always return success
 	SendJSONResponse(w, Response{
 		Success: true,
 		Message: "Phone number successfully verified and user session created",
@@ -183,19 +178,17 @@ func (controller Controller) VerifySignUpOTP(w http.ResponseWriter, r *http.Requ
 				Refresh: session.Token,
 			},
 			User: &struct {
-				Id           uuid.UUID `json:"id"`
-				SirName      string    `json:"sir_name,omitempty"`
-				FirstName    string    `json:"first_name"`
-				LastName     string    `json:"last_name,omitempty"`
-				UserType     string    `json:"user_type,omitempty"`
-				TwoFAEnabled bool      `json:"two_fa_enabled"`
+				Id        uuid.UUID `json:"id"`
+				SirName   string    `json:"sir_name,omitempty"`
+				FirstName string    `json:"first_name"`
+				LastName  string    `json:"last_name,omitempty"`
+				UserType  string    `json:"user_type,omitempty"`
 			}{
-				Id:           session.User.Id,
-				SirName:      session.User.SirName,
-				FirstName:    session.User.FirstName,
-				LastName:     session.User.LastName,
-				UserType:     session.User.UserType,
-				TwoFAEnabled: session.User.TwoFactorEnabled,
+				Id:        session.User.Id,
+				SirName:   session.User.SirName,
+				FirstName: session.User.FirstName,
+				LastName:  session.User.LastName,
+				UserType:  session.User.UserType,
 			},
 		},
 	}, http.StatusOK)

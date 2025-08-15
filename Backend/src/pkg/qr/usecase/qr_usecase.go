@@ -8,12 +8,13 @@ import (
 
 	"github.com/google/uuid"
 
-	SocialpayUsecase "github.com/socialpay/socialpay/src/pkg/socialpayapi/usecase"
+	commission_usecase "github.com/socialpay/socialpay/src/pkg/commission/usecase"
 	"github.com/socialpay/socialpay/src/pkg/qr/core/entity"
 	"github.com/socialpay/socialpay/src/pkg/qr/core/repository"
 	"github.com/socialpay/socialpay/src/pkg/shared/logging"
 	"github.com/socialpay/socialpay/src/pkg/shared/pagination"
 	"github.com/socialpay/socialpay/src/pkg/shared/payment"
+	socialpayUsecase "github.com/socialpay/socialpay/src/pkg/socialpayapi/usecase"
 	txEntity "github.com/socialpay/socialpay/src/pkg/transaction/core/entity"
 	txRepo "github.com/socialpay/socialpay/src/pkg/transaction/core/repository"
 	transaction_usecase "github.com/socialpay/socialpay/src/pkg/transaction/usecase"
@@ -45,28 +46,34 @@ type QRUseCase interface {
 }
 
 type qrUseCase struct {
-	qrRepo             repository.QRRepository
-	transactionRepo    txRepo.TransactionRepository
-	transactionUseCase transaction_usecase.TransactionUseCase
-	paymentService     SocialpayUsecase.PaymentProcessor
-	walletUseCase      walletUsecase.WalletUseCase
-	log                logging.Logger
+	qrRepo                     repository.QRRepository
+	transactionRepo            txRepo.TransactionRepository
+	transactionUseCase         transaction_usecase.TransactionUseCase
+	paymentService             socialpayUsecase.PaymentProcessor
+	walletUseCase              walletUsecase.MerchantWalletUsecase
+	transactionCreationService *socialpayUsecase.TransactionCreationService
+	log                        logging.Logger
 }
 
 func NewQRUseCase(
 	qrRepo repository.QRRepository,
 	transactionRepo txRepo.TransactionRepository,
 	transactionUseCase transaction_usecase.TransactionUseCase,
-	paymentService SocialpayUsecase.PaymentProcessor,
-	walletUseCase walletUsecase.WalletUseCase,
+	paymentService socialpayUsecase.PaymentProcessor,
+	walletUseCase walletUsecase.MerchantWalletUsecase,
+	commissionUseCase commission_usecase.CommissionUseCase,
 ) QRUseCase {
+	logger := logging.NewStdLogger("qr_usecase")
+	transactionCreationService := socialpayUsecase.NewTransactionCreationService(commissionUseCase, logger)
+
 	return &qrUseCase{
-		qrRepo:             qrRepo,
-		transactionRepo:    transactionRepo,
-		transactionUseCase: transactionUseCase,
-		paymentService:     paymentService,
-		walletUseCase:      walletUseCase,
-		log:                logging.NewStdLogger("qr_usecase"),
+		qrRepo:                     qrRepo,
+		transactionRepo:            transactionRepo,
+		transactionUseCase:         transactionUseCase,
+		paymentService:             paymentService,
+		walletUseCase:              walletUseCase,
+		transactionCreationService: transactionCreationService,
+		log:                        logger,
 	}
 }
 
@@ -295,7 +302,7 @@ func (uc *qrUseCase) ProcessQRPayment(ctx context.Context, qrLinkID uuid.UUID, r
 	// Generate callback URL
 	baseURL := os.Getenv("APP_URL_V2")
 	if baseURL == "" {
-		baseURL = "http://localhost:8080" // fallback
+		baseURL = "http://196.190.251.194:8082" // fallback
 	}
 	callbackURL := fmt.Sprintf("%s/api/v2/qr/callback", baseURL)
 
@@ -308,59 +315,62 @@ func (uc *qrUseCase) ProcessQRPayment(ctx context.Context, qrLinkID uuid.UUID, r
 	totalAmountIncludingTip := paymentAmount + tipAmount
 
 	hasTip := qrLink.IsTipEnabled && req.TipAmount != nil && *req.TipAmount > 0
-	// Create main payment transaction
-	mainTx := &txEntity.Transaction{
-		Id:                uuid.New(),
-		PhoneNumber:       req.PhoneNumber,
-		UserId:            qrLink.UserID,
-		MerchantId:        qrLink.MerchantID,
-		Type:              txEntity.DEPOSIT,
-		Medium:            req.Medium,
-		Amount:            totalAmountIncludingTip,
-		Currency:          "ETB", // Default currency
-		Reference:         fmt.Sprintf("QR_%s", qrLinkID.String()[:8]),
-		Description:       uc.buildPaymentDescription(qrLink),
-		CallbackURL:       callbackURL,
-		Test:              false,
-		Status:            txEntity.INITIATED,
-		TransactionSource: txEntity.QR_PAYMENT,
-		QRTag:             &transactionTag,
-		HasTip:            hasTip,
-		// QR specific context
-		QRLinkID: &qrLinkID,
+
+	// Use unified transaction creation service for QR payment
+	txCreationReq := socialpayUsecase.TransactionCreationRequest{
+		UserID:          qrLink.UserID,
+		MerchantID:      qrLink.MerchantID,
+		BaseAmount:      paymentAmount,
+		Description:     uc.buildPaymentDescription(qrLink),
+		Medium:          req.Medium,
+		Type:            txEntity.DEPOSIT,
+		PaymentType:     "qr",
+		MerchantPaysFee: req.MerchantPaysFee,
+		CallbackURL:     callbackURL,
+		TipAmount:       &tipAmount,
+		TipeePhone:      req.TipeePhone,
+		TipMedium:       req.TipMedium,
 	}
 
-	// Calculate fees and totals (same as direct payment)
-	commission := 2.75
-	if qrLink.MerchantID == uuid.MustParse("66e3c8c4-5308-4537-955e-c8d6cd1b4afe") {
-		commission = 1
+	txCreationResp, err := uc.transactionCreationService.CreateTransaction(ctx, txCreationReq)
+	if err != nil {
+		uc.log.Error("Failed to create QR transaction using unified service", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to create QR transaction: %w", err)
 	}
-	mainTx.FeeAmount = RoundToTwoDecimals((mainTx.Amount * commission) / 100) // 2.75% transaction fee
-	mainTx.VatAmount = RoundToTwoDecimals((mainTx.FeeAmount * 15) / 100)      // 15% VAT on fee
-	mainTx.TotalAmount = RoundToTwoDecimals(mainTx.Amount + mainTx.FeeAmount + mainTx.VatAmount)
-	mainTx.AdminNet = RoundToTwoDecimals(mainTx.FeeAmount - mainTx.VatAmount)
-	mainTx.MerchantNet = RoundToTwoDecimals(mainTx.Amount)
 
-	uc.log.Info("Created QR payment transaction", map[string]interface{}{
-		"transaction_id":  mainTx.Id,
-		"original_amount": mainTx.Amount,
-		"total_amount":    mainTx.TotalAmount,
-		"qr_link_id":      qrLinkID,
-		"tag":             transactionTag,
-	})
+	mainTx := txCreationResp.Transaction
+	mainTx.PhoneNumber = req.PhoneNumber
+	mainTx.Currency = "ETB"
+	mainTx.Reference = fmt.Sprintf("QR_%s", qrLinkID.String()[:8])
+	mainTx.Status = txEntity.INITIATED
+	mainTx.TransactionSource = txEntity.QR_PAYMENT
+	mainTx.QRTag = &transactionTag
+	mainTx.QRLinkID = &qrLinkID
+	mainTx.HasTip = hasTip
 
+	// Handle tip fields if present
 	if hasTip {
-		mainTx.HasTip = true
 		mainTx.TipAmount = req.TipAmount
-		// Safely handle optional tipee phone
 		if req.TipeePhone != nil {
 			mainTx.TipeePhone = req.TipeePhone
 		}
-		// Safely handle optional tip medium
 		if req.TipMedium != nil {
-			mainTx.TipMedium = (*string)(req.TipMedium)
+			tipMediumStr := string(*req.TipMedium)
+			mainTx.TipMedium = &tipMediumStr
 		}
 	}
+
+	uc.log.Info("Created QR payment transaction using unified service", map[string]interface{}{
+		"transaction_id":  mainTx.Id,
+		"original_amount": mainTx.BaseAmount,
+		"total_amount":    mainTx.TotalAmount,
+		"commission_rate": txCreationResp.CommissionRate,
+		"qr_link_id":      qrLinkID,
+		"tag":             transactionTag,
+		"tip_amount":      txCreationResp.TipAmount,
+	})
 
 	// Store main transaction
 	if err := uc.transactionRepo.Create(ctx, mainTx); err != nil {
@@ -374,7 +384,7 @@ func (uc *qrUseCase) ProcessQRPayment(ctx context.Context, qrLinkID uuid.UUID, r
 	paymentReq := &payment.PaymentRequest{
 		TransactionID: mainTx.Id,
 		Medium:        req.Medium,
-		Amount:        mainTx.TotalAmount,
+		Amount:        mainTx.CustomerNet,
 		Currency:      mainTx.Currency,
 		PhoneNumber:   req.PhoneNumber,
 		Reference:     mainTx.Reference,
@@ -393,6 +403,7 @@ func (uc *qrUseCase) ProcessQRPayment(ctx context.Context, qrLinkID uuid.UUID, r
 			"error": err.Error(),
 		})
 		mainTx.Status = txEntity.FAILED
+		mainTx.Comment = err.Error()
 		_ = uc.transactionRepo.Update(ctx, mainTx)
 		return nil, fmt.Errorf("failed to process payment: %w", err)
 	}
@@ -406,10 +417,27 @@ func (uc *qrUseCase) ProcessQRPayment(ctx context.Context, qrLinkID uuid.UUID, r
 		return nil, fmt.Errorf("failed to update transaction: %w", err)
 	}
 
+	// loging provider_tx_id
+	uc.log.Info("provider_tx_id", map[string]interface{}{
+		"provider_tx_id": paymentResp.ProcessorRef,
+	})
+
+	param := map[string]interface{}{
+		"provider_tx_id": paymentResp.ProcessorRef,
+	}
+	// Setting provider_id
+	if err := uc.transactionRepo.UpdateTransactionWithProviderData(ctx, mainTx.Id, param); err != nil {
+		// loging
+		uc.log.Error("error while setting provider_tx_id", map[string]interface{}{
+			"err": err,
+		})
+	}
+
 	response := &entity.QRPaymentResponse{
 		Success:                paymentResp.Success,
 		Status:                 string(paymentResp.Status),
 		Message:                paymentResp.Message,
+		PaymentURL:             paymentResp.PaymentURL,
 		PaymentAmount:          totalAmountIncludingTip,
 		SocialPayTransactionID: mainTx.Id.String(),
 	}
@@ -434,8 +462,8 @@ func (uc *qrUseCase) ProcessQRPayment(ctx context.Context, qrLinkID uuid.UUID, r
 func (uc *qrUseCase) buildQRLinkResponse(qrLink *entity.QRLink) *entity.QRLinkResponse {
 	return &entity.QRLinkResponse{
 		QRLink:     qrLink,
-		QRCodeURL:  fmt.Sprintf("https://api.Socialpay.co/qr/display/%s", qrLink.ID),
-		PaymentURL: fmt.Sprintf("https://checkout.Socialpay.co/qr/%s", qrLink.ID),
+		QRCodeURL:  fmt.Sprintf("https://api.socialpay.co/qr/display/%s", qrLink.ID),
+		PaymentURL: fmt.Sprintf("https://checkout.socialpay.co/qr/%s", qrLink.ID),
 	}
 }
 

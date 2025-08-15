@@ -112,7 +112,7 @@ func (service BasicCheckoutService) ConfirmTransaction(id string) (any, error) {
 	case "CYBERSOURCE":
 		{
 			// Process Cybersource
-			data, err = processors.ProcessCybersource(txn.Id, txn.Pricing.Amount, "https://api.Socialpay.co:32000")
+			data, err = processors.ProcessCybersource(txn.Id, txn.Pricing.Amount, "https://api.socialpay.co:32000")
 			if err != nil {
 				return nil, err
 			}
@@ -278,7 +278,7 @@ func (service BasicCheckoutService) InitDirectTransaction(to string, medium stri
 	case "CYBERSOURCE":
 		{
 			// Process Cybersource
-			data, err = processors.ProcessCybersource(txn.Id, txn.Pricing.Amount, "https://api.Socialpay.co:32000")
+			data, err = processors.ProcessCybersource(txn.Id, txn.Pricing.Amount, "https://api.socialpay.co:32000")
 			if err != nil {
 				return nil, err
 			}

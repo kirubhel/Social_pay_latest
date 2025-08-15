@@ -157,7 +157,7 @@ func (uc Usecase) CreateBankAccount(userId uuid.UUID, bankId uuid.UUID, accountN
 			// 	Username string `json:"username"`
 			// 	Password string `json:"password"`
 			// }{
-			// 	Username: "Social Pay",
+			// 	Username: "SocialPay",
 			// 	Password: "e3i1OehzfV0Iz16asdTjZEbYG4F769Vx8Unuo5chkM9V",
 			// })
 
@@ -608,7 +608,7 @@ func (uc Usecase) VerifyAccount(userId, accountId uuid.UUID, method string, deta
 			// 	Username string `json:"username"`
 			// 	Password string `json:"password"`
 			// }{
-			// 	Username: "Social Pay",
+			// 	Username: "SocialPay",
 			// 	Password: "e3i1OehzfV0Iz16asdTjZEbYG4F769Vx8Unuo5chkM9V",
 			// })
 
@@ -782,7 +782,7 @@ func (uc Usecase) DeleteAccount(userId, accId uuid.UUID) error {
 			// 	Username string `json:"username"`
 			// 	Password string `json:"password"`
 			// }{
-			// 	Username: "Social Pay",
+			// 	Username: "SocialPay",
 			// 	Password: "e3i1OehzfV0Iz16asdTjZEbYG4F769Vx8Unuo5chkM9V",
 			// })
 

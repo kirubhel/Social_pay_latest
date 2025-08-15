@@ -35,6 +35,12 @@ type PaymentResponse struct {
 	Metadata      map[string]interface{}     `json:"metadata,omitempty"`
 }
 
+type TransactionStatusQueryResponse struct {
+	Status       txEntity.TransactionStatus `json:"status"`
+	ProviderTxId string                     `json:"provider_tx_id"`
+	ProviderData map[string]interface{}     `json:"provider_data"`
+}
+
 // CallbackRequest represents the payment callback request
 type CallbackRequest struct {
 	TransactionID uuid.UUID                  `json:"transaction_id"`
@@ -55,4 +61,6 @@ type Processor interface {
 
 	// GetType returns the processor type
 	GetType() txEntity.TransactionMedium
+
+	QueryTransactionStatus(ctx context.Context, transactionID string) (*TransactionStatusQueryResponse, error)
 }

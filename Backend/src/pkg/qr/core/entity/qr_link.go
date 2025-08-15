@@ -138,6 +138,9 @@ type QRPaymentRequest struct {
 
 	// Tip payment method (required if tip amount > 0)
 	TipMedium *entity.TransactionMedium `json:"tip_medium,omitempty" example:"TELEBIRR"`
+
+	// MerchantPaysFee indicates if the merchant pays the transaction fee
+	MerchantPaysFee bool `json:"merchant_pays_fee" example:"false"`
 }
 
 func (r QRPaymentRequest) Validate() error {
@@ -152,10 +155,10 @@ func (r QRPaymentRequest) Validate() error {
 type QRLinkResponse struct {
 	*QRLink
 	// URL to display QR code
-	QRCodeURL string `json:"qr_code_url" example:"https://api.Socialpay.co/qr/display/123e4567-e89b-12d3-a456-426614174000"`
+	QRCodeURL string `json:"qr_code_url" example:"https://api.socialpay.co/qr/display/123e4567-e89b-12d3-a456-426614174000"`
 
 	// Payment URL for the QR link
-	PaymentURL string `json:"payment_url" example:"https://checkout.Socialpay.co/qr/123e4567-e89b-12d3-a456-426614174000"`
+	PaymentURL string `json:"payment_url" example:"https://checkout.socialpay.co/qr/123e4567-e89b-12d3-a456-426614174000"`
 }
 
 // QRLinksListResponse represents paginated QR links response
@@ -185,9 +188,12 @@ type QRPaymentResponse struct {
 	// Tip amount (if any)
 	TipAmount *float64 `json:"tip_amount,omitempty" example:"5.00"`
 
-	// Socialpay transaction ID for the main payment
-	SocialPayTransactionID string `json:"Socialpay_transaction_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	// SocialPay transaction ID for the main payment
+	SocialPayTransactionID string `json:"socialpay_transaction_id" example:"123e4567-e89b-12d3-a456-426614174000"`
 
-	// Socialpay transaction ID for the tip (if any)
+	// SocialPay transaction ID for the tip (if any)
 	TipTransactionID *string `json:"tip_transaction_id,omitempty" example:"123e4567-e89b-12d3-a456-426614174001"`
+
+	// Payment URL for the QR link
+	PaymentURL string `json:"payment_url" example:"https://checkout.socialpay.co/qr/123e4567-e89b-12d3-a456-426614174000"`
 }

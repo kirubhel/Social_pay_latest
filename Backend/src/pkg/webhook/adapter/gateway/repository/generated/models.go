@@ -11,17 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type MerchantWallet struct {
-	ID           uuid.UUID `json:"id"`
-	UserID       uuid.UUID `json:"user_id"`
-	MerchantID   uuid.UUID `json:"merchant_id"`
-	Amount       float64   `json:"amount"`
-	LockedAmount float64   `json:"locked_amount"`
-	Currency     string    `json:"currency"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-}
-
 type WebhookCallbackLog struct {
 	ID           uuid.UUID      `json:"id"`
 	UserID       uuid.UUID      `json:"user_id"`

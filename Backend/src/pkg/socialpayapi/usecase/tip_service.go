@@ -27,7 +27,7 @@ type TipProcessingService interface {
 
 type tipProcessingService struct {
 	transactionRepo txRepository.TransactionRepository
-	walletUseCase   walletUseCase.WalletUseCase
+	walletUseCase   walletUseCase.MerchantWalletUsecase
 	paymentService  PaymentProcessor
 	log             logging.Logger
 }
@@ -35,7 +35,7 @@ type tipProcessingService struct {
 // NewTipProcessingService creates a new tip processing service
 func NewTipProcessingService(
 	transactionRepo txRepository.TransactionRepository,
-	walletUseCase walletUseCase.WalletUseCase,
+	walletUseCase walletUseCase.MerchantWalletUsecase,
 	paymentService PaymentProcessor,
 ) TipProcessingService {
 	return &tipProcessingService{
@@ -162,7 +162,7 @@ func (s *tipProcessingService) CreateTipWithdrawal(ctx context.Context, mainTx *
 		Description:       fmt.Sprintf("Tip for QR payment %s", mainTx.Id.String()),
 		TransactionSource: txEntity.WITHDRAWAL_TIP,
 		Status:            txEntity.INITIATED,
-		Amount:            tipAmount, // TODO: add fee and vat
+		BaseAmount:            tipAmount, // TODO: add fee and vat
 		TotalAmount:       tipAmount, // TODO: add fee and vat
 		MerchantNet:       tipAmount, // TODO: add fee and vat
 		Test:              false,
@@ -203,7 +203,7 @@ func (s *tipProcessingService) processTipWithdrawalAsync(ctx context.Context, ti
 	paymentReq := &payment.PaymentRequest{
 		TransactionID: tipTx.Id,
 		Medium:        tipTx.Medium,
-		Amount:        tipTx.Amount,
+		Amount:        tipTx.BaseAmount,
 		Currency:      tipTx.Currency,
 		PhoneNumber:   tipTx.PhoneNumber,
 		Reference:     tipTx.Reference,

@@ -253,6 +253,8 @@ type HostedPayment struct {
 	TransactionID       uuid.NullUUID       `json:"transaction_id"`
 	SelectedMedium      sql.NullString      `json:"selected_medium"`
 	SelectedPhoneNumber sql.NullString      `json:"selected_phone_number"`
+	MerchantPaysFee     bool                `json:"merchant_pays_fee"`
+	AcceptTip           bool                `json:"accept_tip"`
 	CreatedAt           time.Time           `json:"created_at"`
 	UpdatedAt           time.Time           `json:"updated_at"`
 	ExpiresAt           time.Time           `json:"expires_at"`
@@ -261,13 +263,13 @@ type HostedPayment struct {
 type MerchantsAddress struct {
 	ID             uuid.UUID      `json:"id"`
 	MerchantID     uuid.UUID      `json:"merchant_id"`
-	AddressType    string         `json:"address_type"`
-	StreetAddress1 string         `json:"street_address_1"`
+	AddressType    sql.NullString `json:"address_type"`
+	StreetAddress1 sql.NullString `json:"street_address_1"`
 	StreetAddress2 sql.NullString `json:"street_address_2"`
-	City           string         `json:"city"`
-	Region         string         `json:"region"`
+	City           sql.NullString `json:"city"`
+	Region         sql.NullString `json:"region"`
 	PostalCode     sql.NullString `json:"postal_code"`
-	Country        string         `json:"country"`
+	Country        sql.NullString `json:"country"`
 	IsPrimary      sql.NullBool   `json:"is_primary"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
@@ -334,6 +336,7 @@ type MerchantsMerchant struct {
 	EstablishedDate            sql.NullTime   `json:"established_date"`
 	CreatedAt                  time.Time      `json:"created_at"`
 	UpdatedAt                  time.Time      `json:"updated_at"`
+	DeletedAt                  sql.NullTime   `json:"deleted_at"`
 	Status                     string         `json:"status"`
 }
 
@@ -389,15 +392,19 @@ type Transaction struct {
 	CreatedAt         time.Time             `json:"created_at"`
 	UpdatedAt         time.Time             `json:"updated_at"`
 	ConfirmTimestamp  sql.NullTime          `json:"confirm_timestamp"`
-	Amount            decimal.Decimal       `json:"amount"`
+	BaseAmount        decimal.Decimal       `json:"base_amount"`
 	FeeAmount         decimal.NullDecimal   `json:"fee_amount"`
 	AdminNet          decimal.NullDecimal   `json:"admin_net"`
 	VatAmount         decimal.NullDecimal   `json:"vat_amount"`
 	MerchantNet       decimal.NullDecimal   `json:"merchant_net"`
+	CustomerNet       decimal.NullDecimal   `json:"customer_net"`
 	TotalAmount       decimal.NullDecimal   `json:"total_amount"`
 	Currency          sql.NullString        `json:"currency"`
 	Details           pqtype.NullRawMessage `json:"details"`
 	Token             sql.NullString        `json:"token"`
+	ProviderTxID      sql.NullString        `json:"provider_tx_id"`
+	ProviderData      pqtype.NullRawMessage `json:"provider_data"`
+	MerchantPaysFee   sql.NullBool          `json:"merchant_pays_fee"`
 	CallbackUrl       sql.NullString        `json:"callback_url"`
 	SuccessUrl        sql.NullString        `json:"success_url"`
 	FailedUrl         sql.NullString        `json:"failed_url"`

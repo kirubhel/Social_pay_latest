@@ -25,12 +25,14 @@ WORKDIR /home/appuser/
 
 # Create necessary directories
 RUN mkdir -p /home/appuser/public && \
-    mkdir -p /home/appuser/db/migrations
+    mkdir -p /home/appuser/db/migrations && \
+    mkdir -p /home/appuser/src/pkg/authv2/seeder
 
 # Copy application and environment files
 COPY --from=builder /app/main .
 COPY --from=builder /app/.env /home/appuser/.env
 #COPY ./public /home/appuser/public
+COPY --from=builder /app/src/pkg/authv2/seeder /home/appuser/src/pkg/authv2/seeder
 COPY --from=builder /app/scripts /home/appuser/scripts
 COPY --from=builder /app/db /home/appuser/db
 COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
@@ -41,7 +43,8 @@ RUN chmod +x /home/appuser/scripts/migrate.sh
 # Set proper permissions
 RUN chown -R appuser:appuser /home/appuser && \
     chmod 644 /home/appuser/.env && \
-    chmod 755 /home/appuser/public
+    chmod 755 /home/appuser/public && \
+    chmod 755 /home/appuser/src/pkg/authv2/seeder
 
 EXPOSE 8080
 

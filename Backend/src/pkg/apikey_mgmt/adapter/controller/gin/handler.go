@@ -6,6 +6,7 @@ import (
 	"github.com/socialpay/socialpay/src/pkg/apikey_mgmt/core/entity"
 	"github.com/socialpay/socialpay/src/pkg/apikey_mgmt/core/repository"
 	"github.com/socialpay/socialpay/src/pkg/apikey_mgmt/usecase"
+	auth_entity "github.com/socialpay/socialpay/src/pkg/authv2/core/entity"
 	"github.com/socialpay/socialpay/src/pkg/shared/logging"
 	jwtMiddleware "github.com/socialpay/socialpay/src/pkg/shared/middleware/gin"
 
@@ -20,6 +21,7 @@ type Handler struct {
 	repository       repository.Repository
 	middleware       *gin.HandlerFunc
 	publicMiddleware *gin.HandlerFunc
+	rbac             *jwtMiddleware.RBACV2
 }
 
 // NewHandler creates a new API key handler
@@ -28,6 +30,7 @@ func NewHandler(
 	repository repository.Repository,
 	jwtAuth gin.HandlerFunc,
 	publicMiddleware gin.HandlerFunc,
+	rbac *jwtMiddleware.RBACV2,
 ) *Handler {
 	return &Handler{
 		log:              logging.NewStdLogger("[APIKEY] [HANDLER]"),
@@ -35,23 +38,36 @@ func NewHandler(
 		repository:       repository,
 		middleware:       &jwtAuth,
 		publicMiddleware: &publicMiddleware,
+		rbac:             rbac,
 	}
 }
 
 // RegisterRoutes registers API key management routes
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
-	// Protected routes
+	// Protected routes with RBAC
 	keys := r.Group("/keys", *h.middleware, jwtMiddleware.MerchantIDMiddleware())
 	{
-		keys.GET("", h.ListAPIKeys)
-		keys.POST("", h.CreateAPIKey)
-		keys.GET("/:id", h.GetAPIKey)
-		keys.PATCH("/:id", h.UpdateAPIKey)
-		keys.DELETE("/:id", h.DeleteAPIKey)
-		keys.POST("/:id/rotate", h.RotateAPIKeySecret)
+		keys.GET("",
+			h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_API_KEY, auth_entity.OPERATION_READ),
+			h.ListAPIKeys)
+		keys.POST("",
+			h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_API_KEY, auth_entity.OPERATION_CREATE),
+			h.CreateAPIKey)
+		keys.GET("/:id",
+			h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_API_KEY, auth_entity.OPERATION_READ),
+			h.GetAPIKey)
+		keys.PATCH("/:id",
+			h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_API_KEY, auth_entity.OPERATION_UPDATE),
+			h.UpdateAPIKey)
+		keys.DELETE("/:id",
+			h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_API_KEY, auth_entity.OPERATION_DELETE),
+			h.DeleteAPIKey)
+		keys.POST("/:id/rotate",
+			h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_API_KEY, auth_entity.OPERATION_UPDATE),
+			h.RotateAPIKeySecret)
 	}
 
-	// Public routes
+	// Public routes (no RBAC needed)
 	public := r.Group("/public/keys", *h.publicMiddleware)
 	{
 		public.POST("/validate", h.ValidateAPIKey)
@@ -78,21 +94,24 @@ type SuccessResponse struct {
 
 // CreateAPIKey godoc
 // @Summary Create API key
-// @Description Create a new API key for a merchant
-// @Tags apikeys
+// @Description Create a new API key for a merchant with specified permissions
+// @Tags API Keys
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param request body entity.CreateAPIKeyRequest true "API key creation request"
 // @Success 201 {object} entity.APIKeyResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
+// @Router /keys [post]
 // @Router /keys [post]
 // @Security BearerAuth
 func (h *Handler) CreateAPIKey(c *gin.Context) {
 	// Get session from context (middleware ensures this exists)
 	session, _ := jwtMiddleware.GetSessionFromContext(c)
-	userID := session.User.Id
+	userID := session.UserID
 
 	// Get merchant ID from context
 	merchantID, exists := jwtMiddleware.GetMerchantIDFromContext(c)
@@ -149,21 +168,22 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 
 // GetAPIKey godoc
 // @Summary Get API key
-// @Description Get an API key by ID
-// @Tags apikeys
+// @Description Get an API key by ID for the authenticated merchant
+// @Tags API Keys
 // @Produce json
-// @Param id path string true "API key ID"
+// @Security BearerAuth
+// @Param id path string true "API key ID" format(uuid)
 // @Success 200 {object} entity.APIKeyResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /keys/{id} [get]
-// @Security BearerAuth
 func (h *Handler) GetAPIKey(c *gin.Context) {
 	// Get session from context (middleware ensures this exists)
 	session, _ := jwtMiddleware.GetSessionFromContext(c)
-	userID := session.User.Id
+	userID := session.UserID
 
 	// Parse API key ID
 	id, err := uuid.Parse(c.Param("id"))
@@ -217,11 +237,17 @@ func (h *Handler) GetAPIKey(c *gin.Context) {
 // @Description List all API keys for the authenticated user
 // @Tags apikeys
 // @Produce json
-// @Success 200 {array} entity.APIKeyResponse
+// ListAPIKeys godoc
+// @Summary List API keys
+// @Description Get all API keys for the authenticated merchant
+// @Tags API Keys
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse{data=[]entity.APIKeyResponse}
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /keys [get]
-// @Security BearerAuth
 func (h *Handler) ListAPIKeys(c *gin.Context) {
 	// Get session from context (middleware ensures this exists)
 
@@ -255,23 +281,24 @@ func (h *Handler) ListAPIKeys(c *gin.Context) {
 
 // UpdateAPIKey godoc
 // @Summary Update API key
-// @Description Update an existing API key
-// @Tags apikeys
+// @Description Update an existing API key for the authenticated merchant
+// @Tags API Keys
 // @Accept json
 // @Produce json
-// @Param id path string true "API key ID"
+// @Security BearerAuth
+// @Param id path string true "API key ID" format(uuid)
 // @Param request body entity.UpdateAPIKeyRequest true "API key update request"
 // @Success 200 {object} entity.APIKeyResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /keys/{id} [patch]
-// @Security BearerAuth
 func (h *Handler) UpdateAPIKey(c *gin.Context) {
 	// Get session from context (middleware ensures this exists)
 	session, _ := jwtMiddleware.GetSessionFromContext(c)
-	userID := session.User.Id
+	userID := session.UserID
 
 	// Parse API key ID
 	id, err := uuid.Parse(c.Param("id"))
@@ -350,19 +377,24 @@ func (h *Handler) UpdateAPIKey(c *gin.Context) {
 // @Summary Delete API key
 // @Description Delete an existing API key
 // @Tags apikeys
+// DeleteAPIKey godoc
+// @Summary Delete API key
+// @Description Delete an API key for the authenticated merchant
+// @Tags API Keys
 // @Produce json
-// @Param id path string true "API key ID"
+// @Security BearerAuth
+// @Param id path string true "API key ID" format(uuid)
 // @Success 200 {object} SuccessResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /keys/{id} [delete]
-// @Security BearerAuth
 func (h *Handler) DeleteAPIKey(c *gin.Context) {
 	// Get session from context (middleware ensures this exists)
 	session, _ := jwtMiddleware.GetSessionFromContext(c)
-	userID := session.User.Id
+	userID := session.UserID
 
 	// Parse API key ID
 	id, err := uuid.Parse(c.Param("id"))
@@ -424,21 +456,22 @@ func (h *Handler) DeleteAPIKey(c *gin.Context) {
 
 // RotateAPIKeySecret godoc
 // @Summary Rotate API key secret
-// @Description Generate a new secret for an API key
-// @Tags apikeys
+// @Description Generate a new secret for an API key for the authenticated merchant
+// @Tags API Keys
 // @Produce json
-// @Param id path string true "API key ID"
+// @Security BearerAuth
+// @Param id path string true "API key ID" format(uuid)
 // @Success 200 {object} entity.APIKeyRotateResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /keys/{id}/rotate [post]
-// @Security BearerAuth
 func (h *Handler) RotateAPIKeySecret(c *gin.Context) {
 	// Get session from context (middleware ensures this exists)
 	session, _ := jwtMiddleware.GetSessionFromContext(c)
-	userID := session.User.Id
+	userID := session.UserID
 
 	// Parse API key ID
 	id, err := uuid.Parse(c.Param("id"))
@@ -503,12 +536,12 @@ func (h *Handler) RotateAPIKeySecret(c *gin.Context) {
 
 // ValidateAPIKey godoc
 // @Summary Validate API key
-// @Description Validate an API key with public and secret keys
-// @Tags apikeys
+// @Description Validate an API key with public and secret keys (public endpoint)
+// @Tags API Keys
 // @Accept json
 // @Produce json
 // @Param request body entity.APIKeyValidateRequest true "API key validate request"
-// @Success 200 {object} entity.APIKeyResponse
+// @Success 200 {object} SuccessResponse{data=entity.APIKeyResponse}
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse

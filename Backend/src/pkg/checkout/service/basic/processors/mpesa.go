@@ -15,7 +15,7 @@ func ProcessMPesa(id string, amount float64, phone string) error {
 		PartyB:            "3eda08ae-56c3-42b9-b195-d32be8eb5aca",
 		PhoneNumber:       phone,
 		TransactionDesc:   "",
-		CallBackURL:       "https://api.Socialpay.co/api/v1/checkout/transactions/notify",
+		CallBackURL:       "https://api.socialpay.co/api/v1/checkout/transactions/notify",
 		AccountReference:  id,
 		MerchantName:      "C2B_STK_BUYGOODS_CLIENT_FASTPAY",
 	})

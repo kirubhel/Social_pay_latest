@@ -31,6 +31,10 @@ type HostedPayment struct {
 	Description string  `json:"description"`
 	Reference   string  `json:"reference"`
 
+	AcceptTip bool `json:"accept_tip"`
+
+	MerchantPaysFee bool `json:"merchant_pays_fee"`
+
 	// Supported payment mediums
 	SupportedMediums []TransactionMedium `json:"supported_mediums"`
 

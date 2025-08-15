@@ -151,7 +151,7 @@ health_check() {
     fi
     
     # Test backend V1 (if accessible)
-    if curl -f -s http://localhost:8004 > /dev/null; then
+    if curl -f -s http://196.190.251.194:8082 > /dev/null; then
         print_status "Backend V1 is responding"
     else
         print_warning "Backend V1 is not responding on port 8004"
@@ -179,7 +179,7 @@ show_summary() {
     echo ""
     echo "Access URLs:"
     echo "  Frontend: http://localhost:3000"
-    echo "  Backend V1: http://localhost:8004"
+    echo "  Backend V1: http://196.190.251.194:8082"
     echo "  Backend V2: http://localhost:8082"
     echo "  Swagger:  http://localhost:8082/swagger/index.html"
     echo "  Nginx:    http://localhost"

@@ -32,7 +32,7 @@ const (
 type TransactionMedium string
 
 const (
-	SOCIALPAY   TransactionMedium = "SOCIALPAY"
+	SOCIALPAY     TransactionMedium = "SOCIALPAY"
 	CYBERSOURCE TransactionMedium = "CYBERSOURCE"
 	ETHSWITCH   TransactionMedium = "ETHSWITCH"
 	MPESA       TransactionMedium = "MPESA"

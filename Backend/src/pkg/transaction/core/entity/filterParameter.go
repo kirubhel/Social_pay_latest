@@ -13,6 +13,7 @@ type DataFormat string
 
 const (
 	FORMATPDF DataFormat = "pdf"
+	FORMATCSV DataFormat = "csv"
 )
 
 // FilterParameters defines the criteria for filtering transactions
@@ -31,9 +32,11 @@ type FilterParameters struct {
 	Format DataFormat        `json:"format"`
 
 	// Searching
-	SocialPayTransactionID string `json:"Socialpay_tx_id,omitempty"` // optional
-	ReferenceId            string `json:"reference_id,omitempty"`    // optional
-	ProviderTransactionId  string `json:"provider_tx_id,omitempty"`  // optional
+	SocialPayTransactionID  string `json:"socialpay_tx_id,omitempty"`  // optional
+	ReferenceId           string `json:"reference_id,omitempty"`   // optional
+	ProviderTransactionId string `json:"provider_tx_id,omitempty"` // optional
+
+	MerchantID uuid.UUID `json:"merchant_id,omitempty"` // optional
 
 	// Sort
 	//@Description ASC or DESC
@@ -108,6 +111,7 @@ func (f *FilterParameters) Validate() error {
 			TELEBIRR,
 			CBE,
 			CYBERSOURCE,
+			KACHA,
 		)); err != nil {
 			return errors.New("invalid medium value")
 		}
@@ -117,6 +121,7 @@ func (f *FilterParameters) Validate() error {
 	if f.Format != "" {
 		if err := validation.Validate(f.Format, validation.In(
 			FORMATPDF,
+			FORMATCSV,
 		)); err != nil {
 			return errors.New("invalid format value")
 		}
@@ -127,7 +132,7 @@ func (f *FilterParameters) Validate() error {
 
 		if _, err := uuid.Parse(f.SocialPayTransactionID); err != nil {
 
-			return errors.New("invalid Socialpay_txn_id format")
+			return errors.New("invalid socialpay_txn_id format")
 		}
 
 	}
@@ -196,6 +201,14 @@ func (fp FilterParameters) ToFilter() filter.Filter {
 		})
 	}
 
+	if fp.MerchantID != uuid.Nil {
+		fields = append(fields, filter.Field{
+			Name:     "merchant_id",
+			Operator: "=",
+			Value:    fp.MerchantID,
+		})
+	}
+
 	// make default sort desc
 
 	if fp.Sort == "" {
@@ -209,11 +222,11 @@ func (fp FilterParameters) ToFilter() filter.Filter {
 			Field: "reference", Term: fp.ReferenceId,
 		})
 	}
-	// if fp.ProviderTransactionId != "" {
-	// 	searchQueries = append(searchQueries, filter.SearchQuery{
-	// 		Field: "provider_tx_id", Term: fp.ProviderTransactionId,
-	// 	})
-	// }
+	if fp.ProviderTransactionId != "" {
+		searchQueries = append(searchQueries, filter.SearchQuery{
+			Field: "provider_tx_id", Term: fp.ProviderTransactionId,
+		})
+	}
 
 	return filter.Filter{
 		Group: filter.FilterGroup{

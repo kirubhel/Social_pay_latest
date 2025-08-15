@@ -30,18 +30,20 @@ SELECT
     created_at,
     updated_at,
     confirm_timestamp,
-    amount,
+    base_amount,
     fee_amount,
     admin_net,
     vat_amount,
     merchant_net,
+	customer_net,
     total_amount,
     currency,
     details,
     token,
     callback_url,
     success_url,
-    failed_url
+    failed_url,
+	provider_tx_id
 FROM public.transactions `
 
 func (r *TransactionRepositoryImpl) GetTransactionWithParameter(clause string, args []interface{}) ([]repository.Transaction, error) {
@@ -80,11 +82,12 @@ func (r *TransactionRepositoryImpl) GetTransactionWithParameter(clause string, a
 			&i.CreatedAt,        // 16 time.Time
 			&i.UpdatedAt,        // 17 time.Time
 			&i.ConfirmTimestamp, // 18 time.Time or *time.Time (nullable)
-			&i.Amount,           // 19 float64 or decimal type
+			&i.BaseAmount,       // 19 float64 or decimal type
 			&i.FeeAmount,        // 20 float64 or decimal type (nullable)
 			&i.AdminNet,         // 21 float64 or decimal type (nullable)
 			&i.VatAmount,        // 22 float64 or decimal type (nullable)
 			&i.MerchantNet,      // 23 float64 or decimal type (nullable)
+			&i.CustomerNet,      // 24 float64 or decimal type (nullable)
 			&i.TotalAmount,      // 24 float64 or decimal type (nullable)
 			&i.Currency,         // 25 string
 			&i.Details,          // 26 []byte / json.RawMessage / custom struct
@@ -92,6 +95,7 @@ func (r *TransactionRepositoryImpl) GetTransactionWithParameter(clause string, a
 			&i.CallbackUrl,      // 28 string or sql.NullString
 			&i.SuccessUrl,       // 29 string or sql.NullString
 			&i.FailedUrl,        // 30 string or sql.NullString
+			&i.ProviderTxID,     // 31 string or sql.NullString
 		); err != nil {
 			return nil, err
 		}
@@ -103,14 +107,12 @@ func (r *TransactionRepositoryImpl) GetTransactionWithParameter(clause string, a
 
 }
 
-
-func (q *TransactionRepositoryImpl) CountTransactionWithParameter(ctx context.Context,clause string, 
+func (q *TransactionRepositoryImpl) CountTransactionWithParameter(ctx context.Context, clause string,
 	args []interface{}) (int, error) {
 
+	wclause := StripOrderBy(clause)
 
-	wclause:=StripOrderBy(clause)
-
-	log.Println("clause::",wclause)
+	log.Println("clause::", wclause)
 
 	// Build the full count query
 	countQuery := "SELECT COUNT(*) FROM public.transactions " + wclause
@@ -123,14 +125,12 @@ func (q *TransactionRepositoryImpl) CountTransactionWithParameter(ctx context.Co
 		return 0, err
 	}
 
-	log.Println("Count value::",total)
+	log.Println("Count value::", total)
 
 	return total, nil
 }
 
-
-
-func  (q *TransactionRepositoryImpl)  CountWithClause(ctx context.Context, 
+func (q *TransactionRepositoryImpl) CountWithClause(ctx context.Context,
 	baseTable string, clause string, args ...interface{}) (int, error) {
 	query := "SELECT COUNT(*) FROM " + baseTable + " " + clause
 
@@ -144,15 +144,10 @@ func  (q *TransactionRepositoryImpl)  CountWithClause(ctx context.Context,
 	return total, nil
 }
 
-
-
-
-
-
 // StripOrderBy removes ORDER BY ... before semicolon, keeping the semicolon
 func StripOrderBy(clause string) string {
 	hasSemicolon := strings.HasSuffix(strings.TrimSpace(clause), ";")
-	
+
 	// Remove the semicolon temporarily
 	clause = strings.TrimSuffix(clause, ";")
 

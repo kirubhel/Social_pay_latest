@@ -1,8 +1,8 @@
-# Social Pay Hosted Checkout API Documentation
+# SocialPay Hosted Checkout API Documentation
 
 ## Overview
 
-The Social Pay Hosted Checkout API provides a secure and flexible way for merchants to accept payments without handling sensitive payment information directly. Instead of integrating payment forms into their own applications, merchants can redirect customers to a Social Pay-hosted payment page.
+The SocialPay Hosted Checkout API provides a secure and flexible way for merchants to accept payments without handling sensitive payment information directly. Instead of integrating payment forms into their own applications, merchants can redirect customers to a SocialPay-hosted payment page.
 
 ## Key Benefits
 
@@ -86,7 +86,7 @@ X-API-Key: your-api-key
 | `message` | string | Human-readable status message |
 | `payment_url` | string | URL where customer should complete payment |
 | `reference_id` | string | Echo of the merchant reference |
-| `socialpay_transaction_id` | string | Social Pay's internal checkout ID |
+| `socialpay_transaction_id` | string | SocialPay's internal checkout ID |
 
 **Error Responses**:
 
@@ -118,7 +118,7 @@ After creating a hosted checkout session, redirect your customer to the `payment
 
 1. **Create Checkout**: Call the creation endpoint to get a `payment_url`
 2. **Redirect Customer**: Send customer to the `payment_url`
-3. **Customer Pays**: Customer completes payment on Social Pay's secure page
+3. **Customer Pays**: Customer completes payment on SocialPay's secure page
 4. **Automatic Redirect**: Customer is automatically redirected to your success/failed URL
 5. **Webhook Notification**: You receive payment status via webhook (if configured)
 
@@ -133,7 +133,7 @@ if (checkoutResponse.success) {
 ```
 
 **Customer Experience**:
-- Customer is taken to a secure Social Pay payment page
+- Customer is taken to a secure SocialPay payment page
 - They can select from the payment methods you specified
 - They enter their phone number (if not pre-filled)
 - They complete payment through their chosen provider

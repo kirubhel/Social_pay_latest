@@ -17,6 +17,7 @@ type MerchantWallet struct {
 	Amount       float64   `json:"amount"`
 	LockedAmount float64   `json:"locked_amount"`
 	Currency     string    `json:"currency"`
+	WalletType   string    `json:"wallet_type"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

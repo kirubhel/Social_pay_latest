@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/socialpay/socialpay/src/pkg/v2_merchant/core/entity"
 	"github.com/socialpay/socialpay/src/pkg/v2_merchant/core/repository"
+	"github.com/socialpay/socialpay/src/pkg/v2_merchant/utils"
 )
 
 type merchantRepository struct {
@@ -35,6 +36,95 @@ func (r *merchantRepository) GetMerchant(ctx context.Context, id uuid.UUID) (*en
 	}
 
 	return r.convertMerchantToEntity(merchant), nil
+}
+
+// GetMerchants retrieves list of merchants
+func (r *merchantRepository) GetMerchants(ctx context.Context, params entity.GetMerchantsParams) (*entity.MerchantsResponse, error) {
+	fmt.Println("Req params -> ", params)
+	rows, err := r.queries.SearchMerchants(ctx, SearchMerchantsParams{
+		Lower:   params.Text,
+		Offset:  int32(params.Skip),
+		Limit:   int32(params.Take),
+		Column4: params.StartDate,
+		Column5: params.EndDate,
+		Status:  params.Status,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get merchant: %w", err)
+	}
+
+	var merchants []entity.MerchantDetails
+
+	for _, row := range rows {
+		merchant := r.convertMerchantToEntity(MerchantsMerchant{
+			ID:                         row.ID,
+			UserID:                     row.UserID,
+			LegalName:                  row.LegalName,
+			TradingName:                row.TradingName,
+			BusinessRegistrationNumber: row.BusinessRegistrationNumber,
+			TaxIdentificationNumber:    row.TaxIdentificationNumber,
+			BusinessType:               row.BusinessType,
+			IndustryCategory:           row.IndustryCategory,
+			IsBettingCompany:           row.IsBettingCompany,
+			LotteryCertificateNumber:   row.LotteryCertificateNumber,
+			WebsiteUrl:                 row.WebsiteUrl,
+			EstablishedDate:            row.EstablishedDate,
+			CreatedAt:                  row.CreatedAt,
+			UpdatedAt:                  row.UpdatedAt,
+			Status:                     row.Status,
+		})
+
+		// Get contacts
+		contacts, err := r.GetMerchantContacts(ctx, merchant.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get merchant contacts: %w", err)
+		}
+
+		// Get documents
+		documents, err := r.GetMerchantDocuments(ctx, merchant.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get merchant documents: %w", err)
+		}
+
+		merchants = append(merchants, entity.MerchantDetails{
+			Merchant:  *merchant,
+			Contacts:  contacts,
+			Documents: documents,
+		})
+	}
+
+	var totalCount int
+	if len(rows) > 0 {
+		totalCount = int(rows[0].TotalCount)
+	} else {
+		totalCount = 0
+	}
+
+	return &entity.MerchantsResponse{
+		Count:     totalCount,
+		Merchants: merchants,
+	}, nil
+}
+
+// GetAllMerchants retrieves all merchants
+func (r *merchantRepository) GetAllMerchants(ctx context.Context) ([]entity.Merchant, error) {
+	// Get all merchants
+	merchantsMerchants, err := r.queries.GetAllMerchants(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var merchants []entity.Merchant
+	for _, merchant := range merchantsMerchants {
+		merchant := &entity.Merchant{
+			ID: merchant.ID,
+		}
+
+		merchants = append(merchants, *merchant)
+	}
+
+	return merchants, nil
 }
 
 // GetMerchantDetails retrieves complete merchant information with related data
@@ -85,6 +175,8 @@ func (r *merchantRepository) GetMerchantDetails(ctx context.Context, id uuid.UUI
 	if settings != nil {
 		details.Settings = settings
 	}
+
+	fmt.Println(details)
 
 	return details, nil
 }
@@ -175,8 +267,66 @@ func (r *merchantRepository) GetMerchantSettings(ctx context.Context, merchantID
 	return r.convertSettingsToEntity(settings), nil
 }
 
-// Helper methods to convert SQLC models to entities
+// UpdateMerchant updates merchant
+func (r *merchantRepository) UpdateMerchant(ctx context.Context, merchantID uuid.UUID, req *entity.UpdateMerchantRequest) error {
+	businessInfo := req.BusinessInfo
+	personalInfo := req.PersonalInfo
+	documents := req.Documents
 
+	err := r.queries.UpdateMerchant(ctx, UpdateMerchantParams{
+		ID:                         merchantID,
+		LegalName:                  *businessInfo.LegalName,
+		TradingName:                utils.ToNullString(businessInfo.TradingName),
+		BusinessRegistrationNumber: *businessInfo.BusinessRegistrationNumber,
+		BusinessType:               *businessInfo.BusinessType,
+		TaxIdentificationNumber:    *businessInfo.TaxIdentificationNumber,
+		IndustryCategory:           utils.ToNullString(businessInfo.IndustryCategory),
+		IsBettingCompany:           utils.ToNullBool(businessInfo.IsBettingCompany),
+		LotteryCertificateNumber:   utils.ToNullString(businessInfo.LotteryCertificateNumber),
+		WebsiteUrl:                 utils.ToNullString(businessInfo.WebsiteURL),
+		EstablishedDate:            utils.ToNullTime(businessInfo.EstablishedDate),
+		Status:                     string(*businessInfo.Status),
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update merchant business info: %w", err)
+	}
+
+	id := uuid.New()
+	err = r.queries.CreateMerchantContact(ctx, CreateMerchantContactParams{
+		ID:          id,
+		MerchantID:  merchantID,
+		FirstName:   personalInfo.FirstName,
+		LastName:    personalInfo.LastName,
+		Email:       personalInfo.Email,
+		PhoneNumber: personalInfo.PhoneNumber,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to add merchant personal info: %w", err)
+	}
+
+	for _, document := range documents {
+		id := uuid.New()
+		err := r.queries.CreateMerchantDocument(ctx, CreateMerchantDocumentParams{
+			ID:           id,
+			MerchantID:   merchantID,
+			DocumentType: document.DocumentType,
+			FileUrl:      document.FileUrl,
+			Status:       document.Status,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to create merchant document: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// Helper methods to convert SQLC models to entities
 func (r *merchantRepository) convertMerchantToEntity(m MerchantsMerchant) *entity.Merchant {
 	var tradingName *string
 	if m.TradingName.Valid {
@@ -236,13 +386,13 @@ func (r *merchantRepository) convertAddressToEntity(a MerchantsAddress) entity.M
 	return entity.MerchantAddress{
 		ID:             a.ID,
 		MerchantID:     a.MerchantID,
-		AddressType:    a.AddressType,
-		StreetAddress1: a.StreetAddress1,
+		AddressType:    a.AddressType.String,
+		StreetAddress1: a.StreetAddress1.String,
 		StreetAddress2: streetAddress2,
-		City:           a.City,
-		Region:         a.Region,
+		City:           a.City.String,
+		Region:         a.Region.String,
 		PostalCode:     postalCode,
-		Country:        a.Country,
+		Country:        a.Country.String,
 		IsPrimary:      a.IsPrimary.Bool,
 		CreatedAt:      a.CreatedAt,
 		UpdatedAt:      a.UpdatedAt,
@@ -382,4 +532,204 @@ func (r *merchantRepository) convertSettingsToEntity(s MerchantsSetting) *entity
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
 	}
+}
+
+// UpdateMerchantStatus updates merchant status
+func (r *merchantRepository) UpdateMerchantStatus(ctx context.Context, merchantID uuid.UUID, req *entity.UpdateMerchantStatusRequest) error {
+	err := r.queries.UpdateMerchantStatus(ctx, UpdateMerchantStatusParams{
+		ID:     merchantID,
+		Status: req.Status,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update merchant status: %s", err.Error())
+	}
+	return nil
+}
+
+// UpdateMerchantContact updates merchant contact info
+func (r *merchantRepository) UpdateMerchantContact(ctx context.Context, id uuid.UUID, req *entity.UpdateMerchantContactRequest) error {
+	err := r.queries.UpdateMerchantContact(ctx, UpdateMerchantContactParams{
+		ID:          id,
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
+		PhoneNumber: req.PhoneNumber,
+		Email:       req.Email,
+		IsVerified:  utils.ToNullBool(&req.IsVerified),
+	})
+
+	if err != nil {
+		if err.Error() == "pq: duplicate key value violates unique constraint \"idx_contacts_email_unique\"" {
+			return fmt.Errorf("failed to update merchant contact: email already used")
+		}
+		return fmt.Errorf("failed to update merchant contact: %s", err.Error())
+	}
+	return nil
+}
+
+// UpdateMerchantDocument updates merchant document info
+func (r *merchantRepository) UpdateMerchantDocument(ctx context.Context, id uuid.UUID, req *entity.UpdateMerchantDocumentRequest) error {
+	now := time.Now()
+	err := r.queries.UpdateMerchantDocument(ctx, UpdateMerchantDocumentParams{
+		ID:              id,
+		VerifiedBy:      utils.ToNullUUID(req.VerifiedBy),
+		FileUrl:         req.FileUrl,
+		Status:          req.Status,
+		VerifiedAt:      utils.ToNullTime(&now),
+		RejectionReason: utils.ToNullString(req.RejectionReason),
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update merchant document: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateAdminMerchant updates merchant by admin
+func (r *merchantRepository) UpdateAdminMerchant(ctx context.Context, merchantID uuid.UUID, req *entity.UpdateMerchantRequest) error {
+	businessInfo := req.BusinessInfo
+	personalInfo := req.PersonalInfo
+	documents := req.Documents
+
+	// Update merchant business information
+	err := r.queries.UpdateMerchant(ctx, UpdateMerchantParams{
+		ID:                         merchantID,
+		LegalName:                  *businessInfo.LegalName,
+		TradingName:                utils.ToNullString(businessInfo.TradingName),
+		BusinessRegistrationNumber: *businessInfo.BusinessRegistrationNumber,
+		BusinessType:               *businessInfo.BusinessType,
+		TaxIdentificationNumber:    *businessInfo.TaxIdentificationNumber,
+		IndustryCategory:           utils.ToNullString(businessInfo.IndustryCategory),
+		IsBettingCompany:           utils.ToNullBool(businessInfo.IsBettingCompany),
+		LotteryCertificateNumber:   utils.ToNullString(businessInfo.LotteryCertificateNumber),
+		WebsiteUrl:                 utils.ToNullString(businessInfo.WebsiteURL),
+		EstablishedDate:            utils.ToNullTime(businessInfo.EstablishedDate),
+		Status:                     string(*businessInfo.Status),
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update merchant business info: %w", err)
+	}
+
+	// Get existing contacts for this merchant
+	existingContacts, err := r.queries.GetMerchantContacts(ctx, merchantID)
+	if err != nil {
+		return fmt.Errorf("failed to get existing contacts: %w", err)
+	}
+
+	// Update or create contact
+	if len(existingContacts) > 0 {
+		// Update the first contact (assuming it's the primary contact)
+		contact := existingContacts[0]
+		err = r.queries.UpdateMerchantContact(ctx, UpdateMerchantContactParams{
+			ID:          contact.ID,
+			FirstName:   personalInfo.FirstName,
+			LastName:    personalInfo.LastName,
+			Email:       personalInfo.Email,
+			PhoneNumber: personalInfo.PhoneNumber,
+			IsVerified:  sql.NullBool{Valid: true, Bool: true}, // Admin updates are verified
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update merchant contact: %w", err)
+		}
+	} else {
+		// Create new contact if none exists
+		id := uuid.New()
+		err = r.queries.CreateMerchantContact(ctx, CreateMerchantContactParams{
+			ID:          id,
+			MerchantID:  merchantID,
+			ContactType: "primary",
+			FirstName:   personalInfo.FirstName,
+			LastName:    personalInfo.LastName,
+			Email:       personalInfo.Email,
+			PhoneNumber: personalInfo.PhoneNumber,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create merchant contact: %w", err)
+		}
+	}
+
+	// Handle documents - update existing ones by ID
+	for _, document := range documents {
+		// Check if document exists
+		_, err := r.queries.GetMerchantDocument(ctx, document.ID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// Document doesn't exist, create new one
+				err := r.queries.CreateMerchantDocument(ctx, CreateMerchantDocumentParams{
+					ID:           document.ID,
+					MerchantID:   merchantID,
+					DocumentType: document.DocumentType,
+					FileUrl:      document.FileUrl,
+					Status:       document.Status,
+					CreatedAt:    time.Now(),
+					UpdatedAt:    time.Now(),
+				})
+				if err != nil {
+					return fmt.Errorf("failed to create merchant document: %w", err)
+				}
+			} else {
+				return fmt.Errorf("failed to check document existence: %w", err)
+			}
+		} else {
+			// Document exists, update it
+			err := r.queries.UpdateMerchantDocumentWithType(ctx, UpdateMerchantDocumentWithTypeParams{
+				ID:              document.ID,
+				DocumentType:    document.DocumentType,
+				FileUrl:         document.FileUrl,
+				Status:          document.Status,
+				VerifiedBy:      utils.ToNullUUID(nil),          // Admin updates are verified
+				VerifiedAt:      utils.ToNullTime(&time.Time{}), // Will be set by database trigger
+				RejectionReason: utils.ToNullString(nil),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to update merchant document: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// DeleteMerchant soft deletes merchant
+func (r *merchantRepository) DeleteMerchant(ctx context.Context, merchantID uuid.UUID) error {
+	now := time.Now()
+	err := r.queries.DeleteMerchant(ctx, DeleteMerchantParams{
+		ID:        merchantID,
+		DeletedAt: utils.ToNullTime(&now),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete merchant: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteMerchants soft deletes list of merchants
+func (r *merchantRepository) DeleteMerchants(ctx context.Context, ids []uuid.UUID) error {
+	fmt.Println("merchants to be deleted -> ", ids)
+	err := r.queries.DeleteMerchants(ctx, ids)
+	if err != nil {
+		return fmt.Errorf("failed to delete merchants: %w", err)
+	}
+
+	return nil
+}
+
+// GetMerchantStats retrieves merchant statistics
+func (r *merchantRepository) GetMerchantStats(ctx context.Context) (*entity.MerchantStats, error) {
+	stats, err := r.queries.GetMerchantStats(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get merchant stats: %w", err)
+	}
+
+	return &entity.MerchantStats{
+		TotalMerchants:  stats.TotalMerchants,
+		ActiveMerchants: stats.ActiveMerchants,
+		PendingKyc:      stats.PendingKyc,
+		NewThisMonth:    stats.NewThisMonth,
+	}, nil
 }

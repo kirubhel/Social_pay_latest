@@ -50,36 +50,13 @@ func NewTransactionFromEntity(i entity.Transaction) Transaction {
 }
 
 func (controller Controller) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	// Authentication
-	if len(strings.Split(r.Header.Get("Authorization"), " ")) != 2 {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: &Error{
-				Type:    "UNAUTHORIZED",
-				Message: "Please provide an authentication token in header",
-			},
-		}, http.StatusUnauthorized)
-		return
-	}
-
-	token := strings.Split(r.Header.Get("Authorization"), " ")[1]
-	session, err := controller.auth.GetCheckAuth(token)
-	if err != nil {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: &Error{
-				Type:    "AUTHENTICATION_ERROR",
-				Message: "Invalid token or session",
-			},
-		}, http.StatusUnauthorized)
-		return
-	}
 
 	var user entity.User2
 	decoder := json.NewDecoder((r.Body))
-	err = decoder.Decode(&user)
+	err := decoder.Decode(&user)
 
 	if err != nil {
+
 		SendJSONResponse(w, Response{
 			Success: false,
 			Error: &Error{
@@ -88,27 +65,27 @@ func (controller Controller) UpdateUser(w http.ResponseWriter, r *http.Request) 
 			},
 		}, http.StatusBadRequest)
 		return
-	}
 
-	// Set the user ID from the session
-	user.Id = session.User.Id
+	}
 
 	users, err := controller.interactor.UpdateUserUsecase(user)
 	if err != nil {
+
 		SendJSONResponse(w, Response{
 			Success: false,
 			Error: &Error{
-				Type:    "UPDATE_ERROR",
+				Type:    "INVALID_REQUEST",
 				Message: err.Error(),
 			},
 		}, http.StatusBadRequest)
 		return
-	}
 
+	}
 	SendJSONResponse(w, Response{
 		Success: true,
 		Data:    users,
 	}, http.StatusOK)
+
 }
 
 func (controller Controller) GetVerifyTransactionHosted(w http.ResponseWriter, r *http.Request) {
@@ -934,7 +911,7 @@ where a.user_id= $1`
 
 	fmt.Println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$wwwww", sender_acount)
 
-	txn, err := controller.interactor.CreateTransactionInitiate(sender_id, sender_acount, reciver_acount, amount, "SocialPAY", "", "", "")
+	txn, err := controller.interactor.CreateTransactionInitiate(sender_id, sender_acount, reciver_acount, amount, "SOCIALPAY", "", "", "")
 	if err != nil {
 		SendJSONResponse(w, Response{
 			Success: false,
@@ -1100,37 +1077,10 @@ func (controller Controller) MpesaUssdPush(w http.ResponseWriter, r *http.Reques
 func (controller Controller) MPesaB2C(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("||||||| || M-PESA B2C USSD Push Request ||||||||")
 	// Authenticate request
-	var token string
-	controller.log.Println("verify request")
 
-	if len(strings.Split(r.Header.Get("Authorization"), " ")) != 2 {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: &Error{
-				Type:    "UNAUTHORIZED",
-				Message: "Please provide a valid header token",
-			},
-		}, http.StatusUnauthorized)
-		return
-	}
-
-	token = strings.Split(r.Header.Get("Authorization"), " ")[1]
-	session, err := controller.auth.GetCheckAuth(token)
-
-	if err != nil {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: &Error{
-				Type:    "UNAUTHORIZED",
-				Message: err.Error(),
-			},
-		}, http.StatusUnauthorized)
-		return
-	}
-	fmt.Println("||||||| || M=PESA USSD Push Request ||||||||", session)
 	var req mpesa.B2CPaymentRequest
 	decoder := json.NewDecoder(r.Body)
-	err = decoder.Decode(&req)
+	err := decoder.Decode(&req)
 	if err != nil {
 		SendJSONResponse(w, Response{
 			Success: false,
@@ -1157,7 +1107,7 @@ func (controller Controller) MPesaB2C(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send success response
-	SendJSONResponse(w, Response{Success: true, Data: "USSD Push request sent successfully"}, http.StatusOK)
+	SendJSONResponse(w, Response{Success: true, Data: "M-Pesa B2C request sent successfully"}, http.StatusOK)
 }
 
 func (controller Controller) MpesaUssdTransactionStatus(w http.ResponseWriter, r *http.Request) {
@@ -2102,7 +2052,7 @@ func generateShortTransactionRef() string {
 	if err != nil {
 		panic(err)
 	}
-	return "Social_" + base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b[:])
+	return "social_" + base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b[:])
 }
 
 func (controller Controller) CheckBalance(w http.ResponseWriter, r *http.Request) {
@@ -3230,48 +3180,4 @@ func (controller Controller) GetstorePublicKeyHandler(w http.ResponseWriter, r *
 		Data:    token2,
 	}, http.StatusOK)
 
-}
-
-func (controller Controller) GetUserProfile(w http.ResponseWriter, r *http.Request) {
-	// Authentication
-	if len(strings.Split(r.Header.Get("Authorization"), " ")) != 2 {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: &Error{
-				Type:    "UNAUTHORIZED",
-				Message: "Please provide an authentication token in header",
-			},
-		}, http.StatusUnauthorized)
-		return
-	}
-
-	token := strings.Split(r.Header.Get("Authorization"), " ")[1]
-	session, err := controller.auth.GetCheckAuth(token)
-	if err != nil {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: &Error{
-				Type:    "AUTHENTICATION_ERROR",
-				Message: "Invalid token or session",
-			},
-		}, http.StatusUnauthorized)
-		return
-	}
-
-	user, err := controller.interactor.GetUserProfile(session.User.Id)
-	if err != nil {
-		SendJSONResponse(w, Response{
-			Success: false,
-			Error: &Error{
-				Type:    "FETCH_ERROR",
-				Message: err.Error(),
-			},
-		}, http.StatusBadRequest)
-		return
-	}
-
-	SendJSONResponse(w, Response{
-		Success: true,
-		Data:    user,
-	}, http.StatusOK)
 }

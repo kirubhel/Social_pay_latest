@@ -89,7 +89,7 @@ func New(log *log.Logger, sm *http.ServeMux, interactor usecase.Interactor, repo
 		}
 	})
 
-	sm.HandleFunc("/api/v1/merchant/update", func(w http.ResponseWriter, r *http.Request) {
+	sm.HandleFunc("/api/merchant/update", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			{
@@ -98,7 +98,7 @@ func New(log *log.Logger, sm *http.ServeMux, interactor usecase.Interactor, repo
 		}
 	})
 
-	sm.HandleFunc("/api/v1/get/merchant/details", func(w http.ResponseWriter, r *http.Request) {
+	sm.HandleFunc("/api/get/merchant/details", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			{

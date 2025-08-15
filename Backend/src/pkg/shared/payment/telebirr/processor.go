@@ -71,7 +71,7 @@ func (p *processor) InitiatePayment(ctx context.Context, apikey string, req *pay
 	telebirrReq := map[string]interface{}{
 		"command_id":         "InitTrans_BuyGoodsForCustomer",
 		"conversation_id":    req.TransactionID.String(),
-		"thirdPartyID":       "Social-Pay",
+		"thirdPartyID":       "social-Pay",
 		"password":           p.password,
 		"resultURL":          os.Getenv("APP_URL_V2") + "/api/v2/settle/std",
 		"timestamp":          time.Now().Format("20060102150405"),
@@ -256,8 +256,8 @@ func (p *processor) InitiateWithdrawal(ctx context.Context, apikey string, req *
 		"Remarks":                  "Withdrawal Request from " + req.PhoneNumber + " ID: " + req.TransactionID.String(),
 		"Occasion":                 "Pay for Individual",
 		"QueueTimeOutURL":          "/api/accounts/telebirr/b2c/transactionstatus",
-		"ResultURL":                "http://api.socialpay.et:6080/api/accounts/telebirr/b2c/transactionstatus", //TODO: get from env
-		"ThirdPartyID":             "Social-Pay",
+		"ResultURL":                "http://api.SOCIALPAY.et:6080/api/accounts/telebirr/b2c/transactionstatus", //TODO: get from env
+		"ThirdPartyID":             "social-Pay",
 		"Password":                 "jBq7JfxTs0C5ji0VPKakmRSgBbeh4NO0juJ1LXnPIOw=",
 	}
 
@@ -383,4 +383,11 @@ func maskAPIKey(key string) string {
 		return key
 	}
 	return "****" + key[len(key)-4:]
+}
+
+func (p *processor) QueryTransactionStatus(ctx context.Context, transactionID string) (*payment.TransactionStatusQueryResponse, error) {
+	p.log.Info("Querying Cybersource transaction status", map[string]interface{}{
+		"transaction_id": transactionID,
+	})
+	return nil, nil
 }

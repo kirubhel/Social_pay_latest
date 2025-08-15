@@ -28,13 +28,14 @@ const (
 type TransactionMedium string
 
 const (
-	SOCIALPAY   TransactionMedium = "SOCIALPAY"
+	SOCIALPAY     TransactionMedium = "SOCIALPAY"
 	CYBERSOURCE TransactionMedium = "CYBERSOURCE"
 	ETHSWITCH   TransactionMedium = "ETHSWITCH"
 	MPESA       TransactionMedium = "MPESA"
 	TELEBIRR    TransactionMedium = "TELEBIRR"
 	CBE         TransactionMedium = "CBE"
 	AWASH       TransactionMedium = "AWASH"
+	KACHA       TransactionMedium = "KACHA"
 )
 
 // TransactionSource represents the source/origin of the transaction
@@ -136,14 +137,12 @@ type Transaction struct {
 	Description string `json:"description" example:"Payment for service"`
 	// Security token
 	Token string `json:"token" example:"tok_123456"`
-	// Transaction amount
-	Amount float64 `json:"amount" example:"1000.50"`
+	// Base amount (original amount in request)
+	BaseAmount float64 `json:"base_amount" example:"1000.50"`
 	// Whether challenge is required
 	HasChallenge bool `json:"has_challenge" example:"false"`
-
 	//webhook_received
 	WebhookReceived bool `json:"webhook_received" example:"false"`
-
 	// Fee amount
 	FeeAmount float64 `json:"fee_amount" example:"10.00"`
 	// Admin net amount
@@ -152,6 +151,8 @@ type Transaction struct {
 	VatAmount float64 `json:"vat_amount" example:"15.00"`
 	// Merchant net amount
 	MerchantNet float64 `json:"merchant_net" example:"970.50"`
+	// Customer net amount
+	CustomerNet float64 `json:"customer_net" example:"1000.50"`
 	// Total amount
 	TotalAmount float64 `json:"total_amount" example:"1000.50"`
 	// Currency code
@@ -179,6 +180,15 @@ type Transaction struct {
 
 	// Merchant information (populated when fetched with merchant details)
 	Merchant *entity.Merchant `json:"merchant,omitempty"`
+
+	// Merchant pays fee
+	MerchantPaysFee bool `json:"merchant_pays_fee" db:"merchant_pays_fee"`
+
+	// Provider data
+	ProviderData interface{} `json:"provider_data,omitempty" db:"provider_data"`
+
+	// Provider transaction ID
+	ProviderTxId string `json:"provider_tx_id,omitempty" db:"provider_tx_id"`
 }
 
 // GetTransactionResponse represents the response for transaction lookup

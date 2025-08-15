@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/socialpay/socialpay/src/pkg/shared/filter"
@@ -17,6 +18,9 @@ type TransactionRepository interface {
 	GetByUserIdAndReferenceID(ctx context.Context, userID uuid.UUID, referenceID string) (*entity.Transaction, error)
 	GetByMerchantIdAndReferenceID(ctx context.Context, merchantID uuid.UUID, referenceID string) (*entity.Transaction, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.TransactionStatus) error
+
+	// UpdateTransactionWithProviderData updates transaction with provider information
+	UpdateTransactionWithProviderData(ctx context.Context, id uuid.UUID, updateParams map[string]interface{}) error
 
 	// Create creates a new transaction
 	Create(ctx context.Context, tx *entity.Transaction) error
@@ -59,4 +63,9 @@ type TransactionRepository interface {
 	// Analytics methods
 	GetTransactionAnalytics(ctx context.Context, filter *entity.AnalyticsFilter, userID uuid.UUID) (*entity.TransactionAnalytics, error)
 	GetChartData(ctx context.Context, filter *entity.ChartFilter, userID uuid.UUID) (*entity.ChartData, error)
+
+	// Admin analytics methods
+	GetAdminTransactionAnalytics(ctx context.Context, filter *entity.AnalyticsFilter) (*entity.AdminTransactionAnalytics, error)
+	GetAdminChartData(ctx context.Context, filter *entity.ChartFilter) (*entity.ChartData, error)
+	GetMerchantGrowthAnalytics(ctx context.Context, startDate, endDate time.Time, dateUnit entity.DateUnit) (*entity.MerchantGrowthAnalytics, error)
 }

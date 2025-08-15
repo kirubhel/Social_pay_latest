@@ -11,33 +11,15 @@ import (
 )
 
 type Querier interface {
-	// @param id uuid
-	// @param user_id uuid
-	// @param merchant_id uuid
-	// @param amount numeric
-	// @param locked_amount numeric
-	// @param currency text
 	CreateMerchantWallet(ctx context.Context, arg CreateMerchantWalletParams) error
-	// @param id uuid
-	DeactivateMerchantWallet(ctx context.Context, id uuid.UUID) error
-	// @param merchant_id uuid
-	GetMerchantWallet(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error)
-	// @param merchant_id uuid
+	GetAdminWallet(ctx context.Context) (MerchantWallet, error)
+	GetAdminWalletForUpdate(ctx context.Context) (MerchantWallet, error)
 	GetMerchantWalletByMerchantID(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error)
-	// @param user_id uuid
+	GetMerchantWalletByMerchantIDForUpdate(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error)
 	GetMerchantWalletByUserID(ctx context.Context, userID uuid.UUID) (MerchantWallet, error)
-	// @param merchant_id uuid
-	GetMerchantWalletForUpdate(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error)
-	// @param id uuid
-	// @param amount numeric
-	// @param locked_amount numeric
+	GetTotalAdminWalletAmount(ctx context.Context) (GetTotalAdminWalletAmountRow, error)
 	UpdateMerchantWallet(ctx context.Context, arg UpdateMerchantWalletParams) error
-	// @param id uuid
-	UpdateMerchantWalletLastSync(ctx context.Context, id uuid.UUID) error
-	// @param id uuid
-	// @param amount numeric
-	// @param locked_amount numeric
-	UpdateMerchantWalletWithTx(ctx context.Context, arg UpdateMerchantWalletWithTxParams) error
+	UpdateMerchantWalletAmountByMerchantID(ctx context.Context, arg UpdateMerchantWalletAmountByMerchantIDParams) error
 }
 
 var _ Querier = (*Queries)(nil)

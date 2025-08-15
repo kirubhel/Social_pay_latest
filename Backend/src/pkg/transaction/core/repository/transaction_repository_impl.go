@@ -15,6 +15,7 @@ import (
 	"github.com/socialpay/socialpay/src/pkg/transaction/core/entity"
 	db "github.com/socialpay/socialpay/src/pkg/transaction/core/repository/generated"
 	merchantEntity "github.com/socialpay/socialpay/src/pkg/v2_merchant/core/entity"
+	"github.com/lib/pq"
 	"github.com/shopspring/decimal"
 	"github.com/sqlc-dev/pqtype"
 )
@@ -150,6 +151,30 @@ func (r *TransactionRepositoryImpl) UpdateStatus(ctx context.Context, id uuid.UU
 	})
 }
 
+// UpdateTransactionWithProviderData updates transaction with provider information
+func (r *TransactionRepositoryImpl) UpdateTransactionWithProviderData(ctx context.Context, id uuid.UUID, updateParams map[string]interface{}) error {
+	setParts := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	for field, value := range updateParams {
+		setParts = append(setParts, fmt.Sprintf("%s = $%d", field, argIndex))
+		args = append(args, value)
+		argIndex++
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE public.transactions 
+		SET %s, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $%d
+	`, strings.Join(setParts, ", "), argIndex)
+
+	args = append(args, id)
+
+	_, err := r.q.ExecContext(ctx, query, args...)
+	return err
+}
+
 func toEntityTransaction(dbTxn *db.Transaction) entity.Transaction {
 	tx := entity.Transaction{
 		Id:        dbTxn.ID,
@@ -187,8 +212,10 @@ func toEntityTransaction(dbTxn *db.Transaction) entity.Transaction {
 	}
 
 	// Convert decimal to float64
-	amount, _ := dbTxn.Amount.Float64()
-	tx.Amount = amount
+	amount, _ := dbTxn.BaseAmount.Float64()
+	tx.BaseAmount = amount
+	customerNet, _ := dbTxn.CustomerNet.Decimal.Float64()
+	tx.CustomerNet = customerNet
 
 	if dbTxn.HasChallenge.Valid {
 		tx.HasChallenge = dbTxn.HasChallenge.Bool
@@ -221,6 +248,13 @@ func toEntityTransaction(dbTxn *db.Transaction) entity.Transaction {
 	if dbTxn.TotalAmount.Valid {
 		amount, _ := dbTxn.TotalAmount.Decimal.Float64()
 		tx.TotalAmount = amount
+	}
+
+	if dbTxn.ProviderData.Valid {
+		json.Unmarshal(dbTxn.ProviderData.RawMessage, &tx.ProviderData)
+	}
+	if dbTxn.ProviderTxID.Valid {
+		tx.ProviderTxId = dbTxn.ProviderTxID.String
 	}
 
 	if dbTxn.Currency.Valid {
@@ -343,8 +377,8 @@ func toEntityTransactionWithMerchant(dbTxnWithMerchant *db.GetTransactionWithMer
 	}
 
 	// Convert decimal to float64
-	amount, _ := dbTxnWithMerchant.Amount.Float64()
-	tx.Amount = amount
+	amount, _ := dbTxnWithMerchant.BaseAmount.Float64()
+	tx.BaseAmount = amount
 
 	if dbTxnWithMerchant.HasChallenge.Valid {
 		tx.HasChallenge = dbTxnWithMerchant.HasChallenge.Bool
@@ -550,12 +584,12 @@ func (r *TransactionRepositoryImpl) Create(ctx context.Context, tx *entity.Trans
 // Helper function to convert entity Transaction to generated Transaction params
 func (r *TransactionRepositoryImpl) toCreateParams(tx *entity.Transaction) db.CreateTransactionParams {
 	params := db.CreateTransactionParams{
-		ID:     tx.Id,
-		UserID: tx.UserId,
-		Type:   string(tx.Type),
-		Medium: string(tx.Medium),
-		Status: db.TransactionStatus(tx.Status),
-		Amount: decimal.NewFromFloat(tx.Amount),
+		ID:         tx.Id,
+		UserID:     tx.UserId,
+		Type:       string(tx.Type),
+		Medium:     string(tx.Medium),
+		Status:     db.TransactionStatus(tx.Status),
+		BaseAmount: decimal.NewFromFloat(tx.BaseAmount),
 	}
 
 	// Handle nullable fields
@@ -605,6 +639,9 @@ func (r *TransactionRepositoryImpl) toCreateParams(tx *entity.Transaction) db.Cr
 	}
 	if tx.MerchantNet != 0 {
 		params.MerchantNet = decimal.NullDecimal{Decimal: decimal.NewFromFloat(tx.MerchantNet), Valid: true}
+	}
+	if tx.CustomerNet != 0 {
+		params.CustomerNet = decimal.NullDecimal{Decimal: decimal.NewFromFloat(tx.CustomerNet), Valid: true}
 	}
 	if tx.TotalAmount != 0 {
 		params.TotalAmount = decimal.NullDecimal{Decimal: decimal.NewFromFloat(tx.TotalAmount), Valid: true}
@@ -660,18 +697,19 @@ func (r *TransactionRepositoryImpl) toCreateParams(tx *entity.Transaction) db.Cr
 	if tx.TipMedium != nil {
 		params.TipMedium = sql.NullString{String: *tx.TipMedium, Valid: true}
 	}
+	params.MerchantPaysFee = sql.NullBool{Bool: tx.MerchantPaysFee, Valid: true}
 
 	return params
 }
 
 func (r *TransactionRepositoryImpl) toCreateWithContextParams(tx *entity.Transaction) db.CreateTransactionWithContextParams {
 	params := db.CreateTransactionWithContextParams{
-		ID:     tx.Id,
-		UserID: tx.UserId,
-		Type:   string(tx.Type),
-		Medium: string(tx.Medium),
-		Status: db.TransactionStatus(tx.Status),
-		Amount: decimal.NewFromFloat(tx.Amount),
+		ID:         tx.Id,
+		UserID:     tx.UserId,
+		Type:       string(tx.Type),
+		Medium:     string(tx.Medium),
+		Status:     db.TransactionStatus(tx.Status),
+		BaseAmount: decimal.NewFromFloat(tx.BaseAmount),
 	}
 
 	// Handle all the same nullable fields as toCreateParams
@@ -967,7 +1005,7 @@ func (r *TransactionRepositoryImpl) GetTransactionAnalytics(ctx context.Context,
 	mainQuery := `
 		SELECT 
 			COUNT(*) as total_transactions,
-			COALESCE(SUM(amount), 0) as total_amount,
+			COALESCE(SUM(base_amount), 0) as total_amount,
 			COALESCE(SUM(merchant_net), 0) as total_merchant_net
 		FROM transactions 
 		WHERE ` + whereClause
@@ -977,7 +1015,7 @@ func (r *TransactionRepositoryImpl) GetTransactionAnalytics(ctx context.Context,
 		SELECT 
 			type,
 			COUNT(*) as count,
-			COALESCE(SUM(amount), 0) as amount
+			COALESCE(SUM(base_amount), 0) as base_amount
 		FROM transactions 
 		WHERE ` + whereClause + `
 		GROUP BY type`
@@ -1016,17 +1054,17 @@ func (r *TransactionRepositoryImpl) GetTransactionAnalytics(ctx context.Context,
 	for typeRows.Next() {
 		var txType string
 		var count int64
-		var amount float64
+		var base_amount float64
 
-		if err := typeRows.Scan(&txType, &count, &amount); err != nil {
+		if err := typeRows.Scan(&txType, &count, &base_amount); err != nil {
 			return nil, fmt.Errorf("failed to scan type breakdown: %w", err)
 		}
 
 		switch txType {
 		case "DEPOSIT":
-			analytics.TotalDeposits = entity.TransactionTypeAnalytics{Count: count, Amount: amount}
+			analytics.TotalDeposits = entity.TransactionTypeAnalytics{Count: count, Amount: base_amount}
 		case "WITHDRAWAL":
-			analytics.TotalWithdrawals = entity.TransactionTypeAnalytics{Count: count, Amount: amount}
+			analytics.TotalWithdrawals = entity.TransactionTypeAnalytics{Count: count, Amount: base_amount}
 		}
 	}
 
@@ -1060,12 +1098,12 @@ func (r *TransactionRepositoryImpl) GetChartData(ctx context.Context, filter *en
 	// Determine the date truncation based on date unit
 	dateTrunc := r.getDateTruncation(filter.DateUnit)
 
-	// Optimized chart query - single query structure for both count and amount
+	// Optimized chart query - single query structure for both count and base_amount
 	query := fmt.Sprintf(`
 		SELECT 
 			DATE_TRUNC('%s', created_at) as period,
 			COUNT(*) as count,
-			COALESCE(SUM(amount), 0) as total_amount
+			COALESCE(SUM(base_amount), 0) as total_amount
 		FROM transactions 
 		WHERE %s
 		GROUP BY DATE_TRUNC('%s', created_at)
@@ -1171,7 +1209,7 @@ func (r *TransactionRepositoryImpl) buildAnalyticsWhereClause(filter *entity.Ana
 		for i, status := range filter.Status {
 			statusStrings[i] = string(status)
 		}
-		args = append(args, statusStrings)
+		args = append(args, pq.Array(statusStrings))
 		argIndex++
 	}
 
@@ -1182,7 +1220,7 @@ func (r *TransactionRepositoryImpl) buildAnalyticsWhereClause(filter *entity.Ana
 		for i, txType := range filter.Type {
 			typeStrings[i] = string(txType)
 		}
-		args = append(args, typeStrings)
+		args = append(args, pq.Array(typeStrings))
 		argIndex++
 	}
 
@@ -1193,7 +1231,7 @@ func (r *TransactionRepositoryImpl) buildAnalyticsWhereClause(filter *entity.Ana
 		for i, medium := range filter.Medium {
 			mediumStrings[i] = string(medium)
 		}
-		args = append(args, mediumStrings)
+		args = append(args, pq.Array(mediumStrings))
 		argIndex++
 	}
 
@@ -1204,28 +1242,28 @@ func (r *TransactionRepositoryImpl) buildAnalyticsWhereClause(filter *entity.Ana
 		for i, source := range filter.Source {
 			sourceStrings[i] = string(source)
 		}
-		args = append(args, sourceStrings)
+		args = append(args, pq.Array(sourceStrings))
 		argIndex++
 	}
 
 	// QR Tag filter - use ANY for better performance
 	if len(filter.QRTag) > 0 {
 		conditions = append(conditions, fmt.Sprintf("qr_tag = ANY($%d)", argIndex))
-		args = append(args, filter.QRTag)
+		args = append(args, pq.Array(filter.QRTag))
 		argIndex++
 	}
 
 	// Amount range filter - use BETWEEN for better performance
 	if filter.AmountMin != nil && filter.AmountMax != nil {
-		conditions = append(conditions, fmt.Sprintf("amount BETWEEN $%d AND $%d", argIndex, argIndex+1))
+		conditions = append(conditions, fmt.Sprintf("base_amount BETWEEN $%d AND $%d", argIndex, argIndex+1))
 		args = append(args, *filter.AmountMin, *filter.AmountMax)
 		argIndex += 2
 	} else if filter.AmountMin != nil {
-		conditions = append(conditions, fmt.Sprintf("amount >= $%d", argIndex))
+		conditions = append(conditions, fmt.Sprintf("base_amount >= $%d", argIndex))
 		args = append(args, *filter.AmountMin)
 		argIndex++
 	} else if filter.AmountMax != nil {
-		conditions = append(conditions, fmt.Sprintf("amount <= $%d", argIndex))
+		conditions = append(conditions, fmt.Sprintf("base_amount <= $%d", argIndex))
 		args = append(args, *filter.AmountMax)
 		argIndex++
 	}
@@ -1233,7 +1271,11 @@ func (r *TransactionRepositoryImpl) buildAnalyticsWhereClause(filter *entity.Ana
 	// Merchant ID filter - use ANY for better performance
 	if len(filter.MerchantID) > 0 {
 		conditions = append(conditions, fmt.Sprintf("merchant_id = ANY($%d)", argIndex))
-		args = append(args, filter.MerchantID)
+		merchantUUIDs := make([]uuid.UUID, len(filter.MerchantID))
+		for i, merchantID := range filter.MerchantID {
+			merchantUUIDs[i] = uuid.MustParse(merchantID)
+		}
+		args = append(args, pq.Array(merchantUUIDs))
 		argIndex++
 	}
 
@@ -1316,4 +1358,343 @@ func (r *TransactionRepositoryImpl) calculatePeriodComparison(ctx context.Contex
 	// Users can filter by status to get specific success/failure analytics
 
 	return comparison, nil
+}
+
+// GetAdminTransactionAnalytics retrieves admin-specific transaction analytics for all merchants
+func (r *TransactionRepositoryImpl) GetAdminTransactionAnalytics(ctx context.Context, filter *entity.AnalyticsFilter) (*entity.AdminTransactionAnalytics, error) {
+	// Add query timeout to prevent long-running queries
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	fmt.Println("[admin]filter", filter)
+	// Build WHERE clause for admin analytics (no merchant filter)
+	whereClause, args := r.buildAdminAnalyticsWhereClause(filter)
+	fmt.Println("[admin]whereClause", whereClause)
+	// Optimized query using partial indexes
+	query := fmt.Sprintf(`
+		WITH base_metrics AS (
+			SELECT 
+				COUNT(*) as total_transactions,
+				COALESCE(SUM(total_amount), 0) as total_amount,
+				COALESCE(SUM(merchant_net), 0) as total_merchant_net,
+				COALESCE(SUM(admin_net), 0) as total_admin_net
+			FROM transactions 
+			WHERE %s
+		),
+		deposit_metrics AS (
+			SELECT 
+				COALESCE(SUM(base_amount), 0) as deposit_amount,
+				COUNT(*) as deposit_count
+			FROM transactions 
+			WHERE %s AND type = 'DEPOSIT'
+		),
+		withdrawal_metrics AS (
+			SELECT 
+				COALESCE(SUM(base_amount), 0) as withdrawal_amount,
+				COUNT(*) as withdrawal_count
+			FROM transactions 
+			WHERE %s AND type = 'WITHDRAWAL'
+		),
+		tips_metrics AS (
+			SELECT 
+				COALESCE(SUM(tip_amount), 0) as tips_amount,
+				COUNT(*) as tips_count
+			FROM transactions 
+			WHERE %s AND has_tip = true
+		)
+		SELECT 
+			b.total_transactions,
+			b.total_amount,
+			b.total_merchant_net,
+			b.total_admin_net,
+			d.deposit_amount,
+			d.deposit_count,
+			w.withdrawal_amount,
+			w.withdrawal_count,
+			t.tips_amount,
+			t.tips_count
+		FROM base_metrics b
+		CROSS JOIN deposit_metrics d
+		CROSS JOIN withdrawal_metrics w
+		CROSS JOIN tips_metrics t
+	`, whereClause, whereClause, whereClause, whereClause)
+
+	var analytics entity.AdminTransactionAnalytics
+	err := r.q.QueryRowContext(ctx, query, args...).Scan(
+		&analytics.TotalTransactions,
+		&analytics.TotalAmount,
+		&analytics.TotalMerchantNet,
+		&analytics.TotalAdminNet,
+		&analytics.TotalDeposits.Amount,
+		&analytics.TotalDeposits.Count,
+		&analytics.TotalWithdrawals.Amount,
+		&analytics.TotalWithdrawals.Count,
+		&analytics.TotalTips.Amount,
+		&analytics.TotalTips.Count,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute analytics query: %w", err)
+	}
+
+	return &analytics, nil
+}
+
+// GetAdminChartData retrieves admin-specific chart data for all merchants
+func (r *TransactionRepositoryImpl) GetAdminChartData(ctx context.Context, filter *entity.ChartFilter) (*entity.ChartData, error) {
+	// Build WHERE clause for admin analytics
+	whereClause, args := r.buildAdminAnalyticsWhereClause(&filter.AnalyticsFilter)
+
+	// Determine what to select based on chart type
+	var selectField string
+	switch filter.ChartType {
+	case "amount":
+		selectField = "COALESCE(SUM(base_amount), 0)"
+	case "count":
+		selectField = "COUNT(*)"
+	case "admin_net":
+		selectField = "COALESCE(SUM(admin_net), 0)"
+	case "merchant_net":
+		selectField = "COALESCE(SUM(merchant_net), 0)"
+	case "vat":
+		selectField = "COALESCE(SUM(vat_amount), 0)"
+	case "fee":
+		selectField = "COALESCE(SUM(fee_amount), 0)"
+	default:
+		selectField = "COALESCE(SUM(base_amount), 0)"
+	}
+
+	// Get date truncation for grouping
+	dateTrunc := r.getDateTruncation(filter.DateUnit)
+
+	// Build the query
+	query := fmt.Sprintf(`
+		SELECT 
+			DATE_TRUNC('%s', created_at) as date,
+			%s as value
+		FROM transactions 
+		WHERE %s
+		GROUP BY DATE_TRUNC('%s', created_at)
+		ORDER BY date
+	`, dateTrunc, selectField, whereClause, dateTrunc)
+
+	rows, err := r.q.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var dataPoints []entity.ChartDataPoint
+	var totalValue float64
+	var maxValue float64
+	var minValue float64
+	count := 0
+
+	for rows.Next() {
+		var date time.Time
+		var value float64
+
+		if err := rows.Scan(&date, &value); err != nil {
+			return nil, err
+		}
+
+		dataPoint := entity.ChartDataPoint{
+			Date:  date,
+			Value: value,
+			Label: r.formatDateLabel(date, filter.DateUnit),
+		}
+
+		dataPoints = append(dataPoints, dataPoint)
+		totalValue += value
+
+		if count == 0 || value > maxValue {
+			maxValue = value
+		}
+		if count == 0 || value < minValue {
+			minValue = value
+		}
+		count++
+	}
+
+	if count == 0 {
+		minValue = 0
+	}
+
+	averageValue := float64(0)
+	if count > 0 {
+		averageValue = totalValue / float64(count)
+	}
+
+	chartData := &entity.ChartData{
+		ChartType: filter.ChartType,
+		DateUnit:  filter.DateUnit,
+		Data:      dataPoints,
+		Summary: entity.ChartSummary{
+			TotalValue:   totalValue,
+			AverageValue: averageValue,
+			MaxValue:     maxValue,
+			MinValue:     minValue,
+			DataPoints:   count,
+		},
+	}
+
+	return chartData, nil
+}
+
+// GetMerchantGrowthAnalytics retrieves merchant growth analytics
+func (r *TransactionRepositoryImpl) GetMerchantGrowthAnalytics(ctx context.Context, startDate, endDate time.Time, dateUnit entity.DateUnit) (*entity.MerchantGrowthAnalytics, error) {
+	// Get current merchant counts
+	currentQuery := `
+		SELECT 
+			COUNT(*) as total_merchants,
+			COUNT(CASE WHEN status = 'active' THEN 1 END) as active_merchants,
+			COUNT(CASE WHEN status = 'inactive' THEN 1 END) as inactive_merchants,
+			COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_merchants,
+			COUNT(CASE WHEN created_at >= $1 THEN 1 END) as new_merchants_this_period,
+			COUNT(CASE WHEN status = 'active' AND updated_at >= $1 THEN 1 END) as activated_this_period,
+			COUNT(CASE WHEN status = 'inactive' AND updated_at >= $1 THEN 1 END) as deactivated_this_period
+		FROM merchants.merchants
+		WHERE created_at <= $2
+	`
+
+	var analytics entity.MerchantGrowthAnalytics
+	err := r.q.QueryRow(currentQuery, startDate, endDate).Scan(
+		&analytics.TotalMerchants,
+		&analytics.ActiveMerchants,
+		&analytics.InactiveMerchants,
+		&analytics.PendingMerchants,
+		&analytics.NewMerchantsThisPeriod,
+		&analytics.ActivatedMerchantsThisPeriod,
+		&analytics.DeactivatedMerchantsThisPeriod,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate growth rates
+	periodDuration := endDate.Sub(startDate)
+	previousStart := startDate.Add(-periodDuration)
+	previousEnd := startDate
+
+	previousQuery := `
+		SELECT 
+			COUNT(*) as total_merchants,
+			COUNT(CASE WHEN status = 'active' THEN 1 END) as active_merchants
+		FROM merchants.merchants
+		WHERE created_at <= $1
+	`
+
+	var previousTotal, previousActive int64
+	err = r.q.QueryRow(previousQuery, previousEnd).Scan(&previousTotal, &previousActive)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate growth percentages
+	if previousTotal > 0 {
+		analytics.TotalMerchantGrowth = ((float64(analytics.TotalMerchants) - float64(previousTotal)) / float64(previousTotal)) * 100
+	}
+	if previousActive > 0 {
+		analytics.ActiveMerchantGrowth = ((float64(analytics.ActiveMerchants) - float64(previousActive)) / float64(previousActive)) * 100
+	}
+
+	// Get growth data time series
+	growthData, err := r.getMerchantGrowthData(ctx, previousStart, endDate, dateUnit)
+	if err == nil {
+		analytics.GrowthData = growthData
+	}
+
+	return &analytics, nil
+}
+
+// Helper methods for admin analytics
+
+func (r *TransactionRepositoryImpl) buildAdminAnalyticsWhereClause(filter *entity.AnalyticsFilter) (string, []interface{}) {
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	// Date range filter
+	conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIndex))
+	args = append(args, filter.StartDate)
+	argIndex++
+
+	conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIndex))
+	args = append(args, filter.EndDate)
+	argIndex++
+
+	// Status filter
+	if len(filter.Status) > 0 {
+		conditions = append(conditions, fmt.Sprintf("status = ANY($%d)", argIndex))
+		statusStrings := make([]string, len(filter.Status))
+		for i, status := range filter.Status {
+			statusStrings[i] = string(status)
+		}
+		args = append(args, pq.Array(statusStrings))
+		argIndex++
+	}
+
+	// Type filter
+	if len(filter.Type) > 0 {
+		conditions = append(conditions, fmt.Sprintf("type = ANY($%d)", argIndex))
+		typeStrings := make([]string, len(filter.Type))
+		for i, txType := range filter.Type {
+			typeStrings[i] = string(txType)
+		}
+		args = append(args, pq.Array(typeStrings))
+		argIndex++
+	}
+
+	// Merchant ID filter
+	if len(filter.MerchantID) > 0 {
+		conditions = append(conditions, fmt.Sprintf("merchant_id = ANY($%d)", argIndex))
+		merchantUUIDs := make([]uuid.UUID, len(filter.MerchantID))
+		for i, merchantID := range filter.MerchantID {
+			merchantUUIDs[i] = uuid.MustParse(merchantID)
+		}
+		args = append(args, pq.Array(merchantUUIDs))
+		argIndex++
+	}
+
+	return strings.Join(conditions, " AND "), args
+}
+
+func (r *TransactionRepositoryImpl) getMerchantGrowthData(ctx context.Context, startDate, endDate time.Time, dateUnit entity.DateUnit) ([]entity.MerchantGrowthDataPoint, error) {
+	dateTrunc := r.getDateTruncation(dateUnit)
+
+	query := fmt.Sprintf(`
+		SELECT 
+			DATE_TRUNC('%s', created_at) as date,
+			COUNT(*) as total_merchants,
+			COUNT(CASE WHEN DATE_TRUNC('%s', created_at) = DATE_TRUNC('%s', created_at) THEN 1 END) as new_merchants,
+			COUNT(CASE WHEN status = 'active' THEN 1 END) as active_merchants
+		FROM merchants
+		WHERE created_at >= $1 AND created_at <= $2
+		GROUP BY DATE_TRUNC('%s', created_at)
+		ORDER BY date
+	`, dateTrunc, dateTrunc, dateTrunc, dateTrunc)
+
+	rows, err := r.q.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var growthData []entity.MerchantGrowthDataPoint
+	for rows.Next() {
+		var dataPoint entity.MerchantGrowthDataPoint
+
+		err := rows.Scan(
+			&dataPoint.Date,
+			&dataPoint.TotalMerchants,
+			&dataPoint.NewMerchants,
+			&dataPoint.ActiveMerchants,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		dataPoint.Label = r.formatDateLabel(dataPoint.Date, dateUnit)
+		growthData = append(growthData, dataPoint)
+	}
+
+	return growthData, nil
 }

@@ -50,7 +50,7 @@ func (u *apiKeyUseCase) CreateAPIKey(ctx context.Context, userID, createdBy uuid
 		})
 		return nil, "", fmt.Errorf("failed to generate public key: %w", err)
 	}
-	publicKey := "SocialPUB_" + publicKeyBase
+	publicKey := "socialPUB_" + publicKeyBase
 
 	secretKeyBase, err := generateRandomString(24) // 24 chars
 	if err != nil {
@@ -59,7 +59,7 @@ func (u *apiKeyUseCase) CreateAPIKey(ctx context.Context, userID, createdBy uuid
 		})
 		return nil, "", fmt.Errorf("failed to generate secret key: %w", err)
 	}
-	secretKey := "SocialSEC_" + secretKeyBase
+	secretKey := "socialSEC_" + secretKeyBase
 
 	// Set default values for permissions if not provided
 	canWithdrawal := false

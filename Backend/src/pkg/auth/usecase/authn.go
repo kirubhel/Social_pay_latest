@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"net"
@@ -13,7 +15,6 @@ import (
 	"github.com/socialpay/socialpay/src/pkg/jwt"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Initiate Authentication
@@ -27,6 +28,7 @@ func (uc Usecase) InitPreSession() (entity.PreSession, error) {
 
 	id := uuid.New()
 
+	
 	token := jwt.Encode(jwt.Payload{
 		Exp:    time.Now().Unix() + 1800,
 		Public: id,
@@ -481,9 +483,18 @@ func (uc Usecase) AuthPassword(token string, password string) error {
 		}
 	}
 
-	// Compare password using bcrypt
-	err = bcrypt.CompareHashAndPassword([]byte(pass.Password), []byte(password))
+	hasher := sha256.New()
+	_, err = hasher.Write([]byte(password))
+	uc.log.Println(err)
 	if err != nil {
+		return Error{
+			Type:    "ERRCRATINGPASSHASH",
+			Message: err.Error(),
+		}
+	}
+
+	// Compare passwords
+	if base64.URLEncoding.EncodeToString(hasher.Sum(nil)) != pass.Password {
 		return Error{
 			Type:    "INCORRECT_PASSWORD",
 			Message: "Password is incorrect",
@@ -502,6 +513,7 @@ func (uc Usecase) AuthPassword(token string, password string) error {
 	err = uc.repo.StorePasswordAuth(passAuth)
 
 	return err
+
 }
 
 func (uc Usecase) CheckPasswordAuth(userId uuid.UUID, token string) error {
@@ -619,83 +631,6 @@ func (uc Usecase) CreateSession(token string) (*entity.Session, string, error) {
 		return &session, token, Error{
 			Type:    "SIGN_UP",
 			Message: "there is no associated user with the provided phone",
-		}
-	}
-
-	id := uuid.New()
-	uc.log.Printf("Creating new session with ID: %s", id)
-
-	// Generate tokens
-	uc.log.Println("Generating active and refresh tokens")
-	active := jwt.Encode(jwt.Payload{
-		Exp:    time.Now().Unix() + (3 * 24 * 60 * 60),
-		Public: id,
-	}, "active")
-
-	refresh := jwt.Encode(jwt.Payload{
-		Exp:    time.Now().Unix() + (30 * 24 * 60 * 60),
-		Public: id,
-	}, "active")
-
-	session = entity.Session{
-		Id:        id,
-		User:      *user,
-		Token:     refresh,
-		CreatedAt: time.Now(),
-	}
-
-	uc.log.Printf("Storing session for user: %s", user.Id)
-	err = uc.repo.StoreSession(session)
-	if err != nil {
-		uc.log.Printf("Failed to store session: %v", err)
-		return &session, activeToken, Error{
-			Type:    ErrCreatingSession,
-			Message: err.Error(),
-		}
-	}
-
-	uc.log.Printf("Session created successfully for user: %s, session ID: %s", user.Id, id)
-	return &session, active, nil
-}
-
-// CreateSessionWithoutPhoneVerification creates a session without requiring phone verification
-// This is used for users who don't have 2FA enabled
-func (uc Usecase) CreateSessionWithoutPhoneVerification(token string, userId uuid.UUID) (*entity.Session, string, error) {
-	// Error
-	var (
-		ErrCreatingSession string = "FAILED_TO_CREATE_SESSION"
-	)
-
-	var session entity.Session
-	var activeToken string
-
-	uc.log.SetPrefix("[AUTH] [USECASE] [CreateSessionWithoutPhoneVerification] ")
-	uc.log.Printf("Starting CreateSessionWithoutPhoneVerification with token: %s, userId: %s", token, userId)
-
-	// Validate token
-	uc.log.Println("Checking pre-session token validity")
-	err := uc.CheckPreSession(token)
-	if err != nil {
-		uc.log.Printf("Pre-session token check failed: %v", err)
-		return &session, activeToken, err
-	}
-
-	// Check user existence
-	uc.log.Printf("Finding user by ID: %s", userId)
-	user, err := uc.repo.FindUserById(userId)
-	if err != nil {
-		uc.log.Printf("Failed to find user: %v", err)
-		return &session, token, Error{
-			Type:    ErrCreatingSession,
-			Message: err.Error(),
-		}
-	}
-
-	if user == nil {
-		uc.log.Printf("No user found for ID: %s", userId)
-		return &session, token, Error{
-			Type:    "USER_NOT_FOUND",
-			Message: "User not found",
 		}
 	}
 

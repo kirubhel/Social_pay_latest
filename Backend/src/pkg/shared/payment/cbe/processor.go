@@ -37,6 +37,17 @@ type ProcessorConfig struct {
 	CallbackURL   string
 }
 
+type CBEQueryTransactionStatusResponse struct {
+	Status            string      `json:"status"`
+	Message           string      `json:"message"`
+	TransactionId     string      `json:"transactionId"`
+	TransactionStatus string      `json:"transactionStatus,omitempty"`
+	ReceiptNumber     string      `json:"receiptNumber,omitempty"`
+	CompletedTime     string      `json:"completedTime,omitempty"`
+	IsReversed        string      `json:"isReversed,omitempty"`
+	Data              interface{} `json:"data,omitempty"`
+}
+
 // NewProcessor creates a new CBE payment processor
 func NewProcessor(config ProcessorConfig) payment.Processor {
 	if config.BaseURL == "" {
@@ -352,5 +363,139 @@ func (p *processor) InitiateWithdrawal(ctx context.Context, apikey string, req *
 			"serviceStatus":            cbeResp.Data.ServiceStatus,
 			"timestamp":                cbeResp.Data.Timestamp,
 		},
+	}, nil
+}
+
+func (p *processor) QueryTransactionStatus(ctx context.Context, transactionID string) (*payment.TransactionStatusQueryResponse, error) {
+	p.log.Info("Querying CBE transaction status", map[string]interface{}{
+		"transaction_id": transactionID,
+	})
+
+	// Prepare CBE specific request for transaction status query
+	jsonData := map[string]interface{}{
+		"merchantId":          p.merchantID,
+		"password":            p.merchantKey,
+		"initiatorTerminalId": p.terminalID,
+		"credentialKey":       p.credentialKey,
+		"userId":              "HABTAMUTA",
+		"transactionId":       transactionID,
+	}
+
+	p.log.Info("Prepared CBE transaction status request", jsonData)
+
+	// Convert request to JSON
+	jsonBytes, err := json.Marshal(jsonData)
+	if err != nil {
+		p.log.Error("Failed to marshal transaction status request", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/api/v1/transaction/status", p.baseURL),
+		strings.NewReader(string(jsonBytes)),
+	)
+	if err != nil {
+		p.log.Error("Failed to create HTTP request", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	p.log.Info("Sending transaction status request to CBE", map[string]interface{}{
+		"url": httpReq.URL.String(),
+	})
+
+	// Send request
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		p.log.Error("Failed to send transaction status request to CBE", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		p.log.Error("Failed to read transaction status response body", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	p.log.Info("Transaction status response body", map[string]interface{}{
+		"body": string(bodyBytes),
+	})
+
+	// Parse response
+	var httpReqParsed CBEQueryTransactionStatusResponse
+	if err := json.Unmarshal(bodyBytes, &httpReqParsed); err != nil {
+		p.log.Error("Failed to decode CBE transaction status response", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Map CBE status to our transaction status
+	status := txEntity.PENDING
+	switch httpReqParsed.Status {
+	case "Completed":
+		status = txEntity.SUCCESS
+	case "Failed":
+	case "FAILED":
+		status = txEntity.FAILED
+	case "Pending":
+		status = txEntity.PENDING
+	default:
+		// For any unknown status, consider it as pending
+		status = txEntity.PENDING
+		p.log.Warn("Unknown CBE transaction status", map[string]interface{}{
+			"status":         httpReqParsed.Status,
+			"transaction_id": transactionID,
+		})
+	}
+
+	p.log.Info("Transaction status query completed", map[string]interface{}{
+		"transaction_id":     transactionID,
+		"cbe_status":         httpReqParsed.Status,
+		"mapped_status":      status,
+		"receipt_number":     httpReqParsed.ReceiptNumber,
+		"transaction_status": httpReqParsed.TransactionStatus,
+		"completed_time":     httpReqParsed.CompletedTime,
+		"is_reversed":        httpReqParsed.IsReversed,
+	})
+
+	// Prepare provider data
+	providerData := make(map[string]interface{})
+	if httpReqParsed.Data != nil {
+		if data, ok := httpReqParsed.Data.(map[string]interface{}); ok {
+			providerData = data
+		} else {
+			// If data is not a map, wrap it in a map
+			providerData["data"] = httpReqParsed.Data
+		}
+	}
+
+	// Add additional fields from the response to provider data
+	providerData["message"] = httpReqParsed.Message
+	providerData["transaction_id"] = httpReqParsed.TransactionId
+	providerData["transaction_status"] = httpReqParsed.TransactionStatus
+	providerData["completed_time"] = httpReqParsed.CompletedTime
+	providerData["is_reversed"] = httpReqParsed.IsReversed
+
+	return &payment.TransactionStatusQueryResponse{
+		Status:       status,
+		ProviderTxId: httpReqParsed.ReceiptNumber,
+		ProviderData: providerData,
 	}, nil
 }

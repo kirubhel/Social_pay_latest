@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS merchant.wallet (
     merchant_id UUID NOT NULL,
     amount FLOAT NOT NULL DEFAULT 0,
     locked_amount FLOAT NOT NULL DEFAULT 0,
-    currency VARCHAR(3) NOT NULL DEFAULT 'KES',
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    wallet_type VARCHAR(10) NOT NULL DEFAULT 'merchant' CHECK (wallet_type IN ('merchant', 'admin')),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     FOREIGN KEY (user_id) REFERENCES auth.users(id)

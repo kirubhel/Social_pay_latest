@@ -26,12 +26,12 @@ CREATE TABLE IF NOT EXISTS merchants.addresses (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     merchant_id uuid NOT NULL REFERENCES merchants.merchants(id) ON DELETE CASCADE,
     address_type VARCHAR(50) NOT NULL, -- 'legal', 'operational', 'billing'
-    street_address_1 VARCHAR(255) NOT NULL,
+    street_address_1 VARCHAR(255),
     street_address_2 VARCHAR(255),
-    city VARCHAR(100) NOT NULL,
-    region VARCHAR(100) NOT NULL,
+    city VARCHAR(100),
+    region VARCHAR(100),
     postal_code VARCHAR(50),
-    country VARCHAR(100) NOT NULL,
+    country VARCHAR(100),
     is_primary BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

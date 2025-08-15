@@ -1,7 +1,7 @@
 package psql
 
 import (
-	"github.com/Socialpay/Socialpay/src/pkg/erp/core/entity"
+	"github.com/socialpay/socialpay/src/pkg/erp/core/entity"
 	"context"
 	"database/sql"
 	"github.com/google/uuid"

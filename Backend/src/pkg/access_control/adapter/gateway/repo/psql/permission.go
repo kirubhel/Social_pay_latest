@@ -226,22 +226,19 @@ func (repo PsqlRepo) DeletePermission(ResourceID uuid.UUID, permissionID uuid.UU
 	return nil
 }
 
-func (repo PsqlRepo) ListUserPermissions(userID uuid.UUID) ([]entity.Permission, error) {
+func (repo PsqlRepo) ListUserPermissions(userID uuid.UUID, resourceName string) ([]entity.Permission, error) {
 	const query = `
-        SELECT 
-            p.id, 
-            r.name AS resource, 
-            p.resource_id AS resource_identifier, 
-            p.operation, 
-            p.effect, 
-            p.created_at, 
-            p.updated_at
+        SELECT DISTINCT p.*, r.name as resource_name, o.name as operation_name
         FROM auth.permissions p
-        JOIN auth.user_permissions up ON p.id = up.permission_id
-        JOIN auth.resources r ON p.resource_id = r.id
-        WHERE up.user_id = $1
+        JOIN auth.resources r ON p.resource = r.id
+        LEFT JOIN auth.operations o ON o.id = ANY(p.operations)
+        LEFT JOIN auth.user_permissions up ON p.id = up.permission_id
+        LEFT JOIN auth.group_permissions gp ON p.id = gp.permission_id
+        LEFT JOIN auth.user_groups ug ON gp.group_id = ug.group_id
+        WHERE (up.user_id = $1 OR ug.user_id = $1)
+        AND r.name = $2
     `
-	rows, err := repo.db.Query(query, userID)
+	rows, err := repo.db.Query(query, userID, resourceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list user permissions %v", err)
 	}
@@ -254,10 +251,12 @@ func (repo PsqlRepo) ListUserPermissions(userID uuid.UUID) ([]entity.Permission,
 			&permission.ID,
 			&permission.Resource,
 			&permission.ResourceID,
-			&permission.Operations,
+			pq.Array(&permission.Operations),
 			&permission.Effect,
 			&permission.CreatedAt,
 			&permission.UpdatedAt,
+			&permission.ResourceName,
+			&permission.OperationName,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan permission %v", err)
 		}
@@ -322,4 +321,43 @@ func (repo PsqlRepo) ListGroupPermissions(groupID uuid.UUID) ([]entity.Permissio
 	}
 
 	return permissions, nil
+}
+
+func (repo PsqlRepo) GetOperationByName(name string) (*entity.Operation, error) {
+	var operation entity.Operation
+	err := repo.db.QueryRow(`
+		SELECT id, name, description, created_at, updated_at 
+		FROM auth.operations 
+		WHERE name = $1
+	`, name).Scan(&operation.ID, &operation.Name, &operation.Description, &operation.CreatedAt, &operation.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get operation by name: %v", err)
+	}
+	return &operation, nil
+}
+
+func (repo PsqlRepo) GetResourceByName(name string) (*entity.Resource, error) {
+	var resource entity.Resource
+	err := repo.db.QueryRow(`
+		SELECT id, name, description, created_at, updated_at 
+		FROM auth.resources 
+		WHERE name = $1
+	`, name).Scan(&resource.ID, &resource.Name, &resource.Description, &resource.CreatedAt, &resource.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource by name: %v", err)
+	}
+	return &resource, nil
+}
+
+func (repo PsqlRepo) GrantPermissionToUser(userID uuid.UUID, permissionID uuid.UUID) error {
+	const query = `
+		INSERT INTO auth.user_permissions (user_id, permission_id)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id, permission_id) DO NOTHING
+	`
+	_, err := repo.db.Exec(query, userID, permissionID)
+	if err != nil {
+		return fmt.Errorf("failed to grant permission to user: %v", err)
+	}
+	return nil
 }

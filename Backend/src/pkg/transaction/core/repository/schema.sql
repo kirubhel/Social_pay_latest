@@ -66,17 +66,23 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     confirm_timestamp TIMESTAMP WITH TIME ZONE,
     
     -- Financial information
-    amount DECIMAL(20,2) NOT NULL,
+    base_amount DECIMAL(20,2) NOT NULL,
     fee_amount DECIMAL(20,2),
     admin_net DECIMAL(20,2),
     vat_amount DECIMAL(20,2),
     merchant_net DECIMAL(20,2),
+    customer_net DECIMAL(20,2),
     total_amount DECIMAL(20,2),
     currency VARCHAR(3) DEFAULT 'ETB',
     
     -- Additional data
     details JSONB,
     token VARCHAR(255),
+    
+    -- Provider information
+    provider_tx_id VARCHAR(255),
+    provider_data JSONB,
+    merchant_pays_fee BOOLEAN DEFAULT FALSE,
     
     -- URLs for callbacks and redirects
     callback_url TEXT,
@@ -134,6 +140,10 @@ CREATE TABLE IF NOT EXISTS public.hosted_payments (
     -- Selected payment details (filled when user makes payment)
     selected_medium VARCHAR(50),
     selected_phone_number VARCHAR(50),
+    
+    -- Fee configuration
+    merchant_pays_fee BOOLEAN NOT NULL DEFAULT false,
+    accept_tip BOOLEAN NOT NULL DEFAULT false,
     
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -195,47 +205,40 @@ CREATE INDEX IF NOT EXISTS idx_transactions_qr_tag ON public.transactions(qr_tag
 -- These indexes are specifically designed for high-performance analytics on billions of transactions
 
 -- Primary analytics index: user_id + created_at (covers most analytics queries)
-CREATE INDEX IF NOT EXISTS idx_transactions_analytics_primary ON public.transactions(user_id, created_at DESC) 
-INCLUDE (amount, merchant_net, type, status, has_tip, tip_amount);
+CREATE INDEX IF NOT EXISTS idx_transactions_analytics_primary ON public.transactions(user_id, created_at DESC, base_amount, merchant_net, type, status, has_tip, tip_amount);
 
 -- Analytics by status: user_id + status + created_at
-CREATE INDEX IF NOT EXISTS idx_transactions_analytics_status ON public.transactions(user_id, status, created_at DESC)
-INCLUDE (amount, merchant_net, type);
+CREATE INDEX IF NOT EXISTS idx_transactions_analytics_status ON public.transactions(user_id, status, created_at DESC, base_amount, merchant_net, type);
 
 -- Analytics by type: user_id + type + created_at  
-CREATE INDEX IF NOT EXISTS idx_transactions_analytics_type ON public.transactions(user_id, type, created_at DESC)
-INCLUDE (amount, merchant_net, status);
+CREATE INDEX IF NOT EXISTS idx_transactions_analytics_type ON public.transactions(user_id, type, created_at DESC, base_amount, merchant_net, status);
 
 -- Analytics by medium: user_id + medium + created_at
-CREATE INDEX IF NOT EXISTS idx_transactions_analytics_medium ON public.transactions(user_id, medium, created_at DESC)
-INCLUDE (amount, merchant_net, type, status);
+CREATE INDEX IF NOT EXISTS idx_transactions_analytics_medium ON public.transactions(user_id, medium, created_at DESC, base_amount, merchant_net, type, status);
 
 -- Analytics by source: user_id + transaction_source + created_at
-CREATE INDEX IF NOT EXISTS idx_transactions_analytics_source ON public.transactions(user_id, transaction_source, created_at DESC)
-INCLUDE (amount, merchant_net, type, status);
+CREATE INDEX IF NOT EXISTS idx_transactions_analytics_source ON public.transactions(user_id, transaction_source, created_at DESC, base_amount, merchant_net, type, status);
 
 -- Chart data optimization: user_id + created_at (date truncation friendly)
-CREATE INDEX IF NOT EXISTS idx_transactions_chart_data ON public.transactions(user_id, date_trunc('day', created_at))
-INCLUDE (amount, type, status);
+CREATE INDEX IF NOT EXISTS idx_transactions_chart_data ON public.transactions(user_id, date_trunc('day', created_at), base_amount, type, status);
 
 -- Tip analytics: user_id + has_tip + created_at
-CREATE INDEX IF NOT EXISTS idx_transactions_tip_analytics ON public.transactions(user_id, has_tip, created_at DESC)
-WHERE has_tip = true
-INCLUDE (tip_amount);
+CREATE INDEX IF NOT EXISTS idx_transactions_tip_analytics ON public.transactions(user_id, has_tip, created_at DESC, tip_amount)
+WHERE has_tip = true;
 
 -- Merchant analytics (for admin/merchant-specific queries): merchant_id + created_at
-CREATE INDEX IF NOT EXISTS idx_transactions_merchant_analytics ON public.transactions(merchant_id, created_at DESC)
-WHERE merchant_id IS NOT NULL
-INCLUDE (amount, merchant_net, type, status, user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_merchant_analytics ON public.transactions(merchant_id, created_at DESC, base_amount, merchant_net, type, status, user_id)
+WHERE merchant_id IS NOT NULL;
 
--- Amount range queries: user_id + amount + created_at
-CREATE INDEX IF NOT EXISTS idx_transactions_amount_range ON public.transactions(user_id, amount, created_at DESC)
-INCLUDE (merchant_net, type, status);
+-- Amount range queries: user_id + base_amount + created_at
+CREATE INDEX IF NOT EXISTS idx_transactions_amount_range ON public.transactions(user_id, base_amount, created_at DESC, merchant_net, type, status);
 
 -- QR tag analytics: user_id + qr_tag + created_at
-CREATE INDEX IF NOT EXISTS idx_transactions_qr_analytics ON public.transactions(user_id, qr_tag, created_at DESC)
-WHERE qr_tag IS NOT NULL
-INCLUDE (amount, merchant_net, type, status);
+CREATE INDEX IF NOT EXISTS idx_transactions_qr_analytics ON public.transactions(user_id, qr_tag, created_at DESC, base_amount, merchant_net, type, status)
+WHERE qr_tag IS NOT NULL;
+
+-- Index for provider transaction ID
+CREATE INDEX IF NOT EXISTS idx_transactions_provider_tx_id ON public.transactions(provider_tx_id);
 
 -- Indexes for hosted payments
 CREATE INDEX IF NOT EXISTS idx_hosted_payments_user_id ON public.hosted_payments(user_id);

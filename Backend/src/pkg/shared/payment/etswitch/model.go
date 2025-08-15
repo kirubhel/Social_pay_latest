@@ -1,5 +1,9 @@
 package etswitch
 
+import (
+	txEntity "github.com/socialpay/socialpay/src/pkg/transaction/core/entity"
+)
+
 var CurrencyToISOCode = map[string]string{
 	"ETB": "230",
 	// UNCOMMENT THE FOLLOWING CURRECY IF YOU NEED OTHERS CURRENCY THAN ETB
@@ -11,10 +15,11 @@ var CurrencyToISOCode = map[string]string{
 }
 
 // Mapping EthSwitch response status
-var ETHStatusToConstant = map[string]string{
-	"declined":  "FAILED",
-	"completed": "SUCCESS",
-	"canceled":  "CANCELED",
+var ETHStatusToConstant = map[string]txEntity.TransactionStatus{
+	"declined":  txEntity.FAILED,
+	"completed": txEntity.SUCCESS,
+	"canceled":  txEntity.CANCELED,
+	"deposited": txEntity.SUCCESS,
 }
 
 type EthSwitchResponse struct {
@@ -24,4 +29,11 @@ type EthSwitchResponse struct {
 	OrderId      string `json:"orderId"`
 	FormUrl      string `json:"formUrl"`
 	MdOrder      string `json:"mdOrder"`
+}
+
+var MapCodeToOrderStatus = map[int]txEntity.TransactionStatus{
+	0: txEntity.PENDING,
+	2: txEntity.SUCCESS,
+	4: txEntity.REFUNDED,
+	6: txEntity.FAILED,
 }

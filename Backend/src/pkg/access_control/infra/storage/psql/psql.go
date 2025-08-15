@@ -2,72 +2,23 @@ package psql
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
-	"os"
 
-	"github.com/joho/godotenv"
-	"github.com/lib/pq"
+	sharedDB "github.com/socialpay/socialpay/src/pkg/shared/database"
 )
 
+// New returns the shared database connection instead of creating a new one
+// This prevents database connection pool fragmentation
 func New(log *log.Logger) (*sql.DB, error) {
-	envFilePath := ".env"
-	err := godotenv.Load(envFilePath)
+	log.SetPrefix(log.Prefix() + " [ACCESS_CONTROL] [INFRA] [STORAGE] [PSQL] ")
+	log.Println("Getting shared database connection")
+
+	db, err := sharedDB.GetSharedConnection()
 	if err != nil {
-		log.Println("Error loading .env file:", err)
+		log.Println("Failed to get shared database connection: " + err.Error())
 		return nil, err
 	}
 
-	const (
-		ErrFailedToConnect = "FAILED_TO_CONNECT"
-		ErrFailedToPing    = "FAILED_TO_PING"
-		ErrFailedToCreate  = "FAILED_TO_CREATE"
-	)
-
-	log.SetPrefix(log.Prefix() + " [AUTH] [INFRA] [STORAGE] [PSQL] ")
-	log.Println("Initiating pg db")
-
-	var (
-		host, _     = os.LookupEnv("DB_HOST")
-		user, _     = os.LookupEnv("DB_USER")
-		password, _ = os.LookupEnv("DB_PASS")
-		dbName, _   = os.LookupEnv("DB_NAME")
-		sslMode, _  = os.LookupEnv("SSL_MODE")
-		port, _     = os.LookupEnv("DB_PORT")
-	)
-
-	// pg connection
-	fmt.Println("|||||||||", host, user, password)
-
-	db, err := sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", user, password, host, port, dbName, sslMode))
-	if err != nil {
-		log.Println("Failed to connect to db server: " + err.Error())
-		return nil, err
-	}
-
-	db.SetMaxIdleConns(2)
-	db.SetMaxOpenConns(0)
-
-	if err = db.Ping(); err != nil {
-		log.Println("Ping is not responding")
-		if err, ok := err.(*pq.Error); ok {
-			switch err.Code.Name() {
-			case "invalid_catalog_name":
-				log.Println("The specified database does not exist, trying to create one")
-				_, err := db.Exec("create database " + dbName)
-				if err != nil {
-					log.Println(err.Error())
-				}
-				if err = db.Ping(); err != nil {
-					log.Println("Pinging the new database failed: " + err.Error())
-				}
-				return db, nil
-			}
-			return nil, err
-		}
-		return nil, err
-	}
-
-	log.Println("Successfully connected to database")
+	log.Println("Successfully obtained shared database connection")
 	return db, nil
 }

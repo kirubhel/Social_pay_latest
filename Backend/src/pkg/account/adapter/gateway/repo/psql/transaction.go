@@ -18,50 +18,14 @@ import (
 
 func (repo PsqlRepo) UpdateUserRepo(users entity.User2) (entity.User2, error) {
 	var res_users entity.User2
-
-	// Update user information
 	_, err := repo.db.Exec(`
-		UPDATE auth.users 
-		SET first_name = $1, last_name = $2, sir_name = $3, user_type = $4
-		WHERE id = $5
-	`, users.FirstName, users.LastName, users.SirName, users.UserType, users.Id)
+	update  auth.users set first_name = $1
+	where id  = $2
+	`, users.Name, users.Id)
 
-	if err != nil {
-		return res_users, err
-	}
+	_ = repo.db.QueryRow(`select id ,first_name from auth.users where id =$1`, users.Id).Scan(&res_users.Id, &res_users.Name)
 
-	// Update phone number if provided
-	if users.PhoneNumber != "" {
-		_, err = repo.db.Exec(`
-			UPDATE auth.phones 
-			SET number = $1 
-			WHERE id = (
-				SELECT phone_id 
-				FROM auth.phone_identities 
-				WHERE user_id = $2
-			)
-		`, users.PhoneNumber, users.Id)
-
-		if err != nil {
-			return res_users, err
-		}
-	}
-
-	// Fetch updated user data
-	err = repo.db.QueryRow(`
-		SELECT u.id, u.first_name, u.last_name, u.sir_name, u.user_type
-		FROM auth.users u 
-		WHERE u.id = $1
-	`, users.Id).Scan(&res_users.Id, &res_users.FirstName, &res_users.LastName, &res_users.SirName, &res_users.UserType)
-
-	if err != nil {
-		return res_users, err
-	}
-
-	// Set the name field for backward compatibility
-	res_users.Name = res_users.FirstName
-
-	return res_users, nil
+	return res_users, err
 }
 
 func (repo PsqlRepo) StoreTransactionSession(preSession entity.TransactionSession) error {
@@ -881,25 +845,4 @@ func (repo PsqlRepo) GetstorePublicKeyHandler(key string, id uuid.UUID, device s
 	}
 
 	return nil
-}
-
-func (repo PsqlRepo) GetUserProfile(userID uuid.UUID) (entity.User2, error) {
-	var user entity.User2
-
-	err := repo.db.QueryRow(`
-		SELECT u.id, u.first_name, u.last_name, u.sir_name, u.user_type, p.number
-		FROM auth.users u
-		LEFT JOIN auth.phone_identities pi ON u.id = pi.user_id
-		LEFT JOIN auth.phones p ON pi.phone_id = p.id
-		WHERE u.id = $1
-	`, userID).Scan(&user.Id, &user.FirstName, &user.LastName, &user.SirName, &user.UserType, &user.PhoneNumber)
-
-	if err != nil {
-		return user, err
-	}
-
-	// Set the name field for backward compatibility
-	user.Name = user.FirstName
-
-	return user, nil
 }

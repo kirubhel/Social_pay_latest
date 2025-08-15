@@ -38,7 +38,7 @@ func NewWebhookDispatcherWorker(cfg *config.Config, db *sql.DB, usecase webhookU
 		"brokers":         cfg.Kafka.Brokers,
 		"topic":           cfg.Kafka.Topics.WebhookDispatch,
 		"group_id":        cfg.Kafka.GroupID,
-		"min_bytes":       "10KB",
+		"min_bytes":       "1KB",
 		"max_bytes":       "10MB",
 		"request_timeout": cfg.Webhook.RequestTimeout.String(),
 		"max_retries":     cfg.Webhook.MaxRetries,
@@ -53,8 +53,9 @@ func NewWebhookDispatcherWorker(cfg *config.Config, db *sql.DB, usecase webhookU
 			Brokers:  cfg.Kafka.Brokers,
 			Topic:    cfg.Kafka.Topics.WebhookDispatch,
 			GroupID:  cfg.Kafka.GroupID,
-			MinBytes: 10e3,
-			MaxBytes: 10e6,
+			MinBytes: 1,                     // Process immediately, don't wait for batches
+			MaxBytes: 10e6,                  // 1MB max (reduced from 10MB)
+			MaxWait:  10 * time.Millisecond, // Wait max 10ms for more messages
 		}),
 		client:             &http.Client{Timeout: cfg.Webhook.RequestTimeout},
 		logger:             logger,
@@ -187,45 +188,23 @@ func (w *WebhookDispatcherWorker) processMessage(ctx context.Context, msg webhoo
 			continue
 		}
 
-		// if msg.IsHostedCheckout {
-		// 	// update the hosted checkout
-		// 	err := w.hostedPaymentRepo.UpdateStatus(ctx, uuid.MustParse(msg.TransactionID),
-		// 		entity.HostedPaymentCompleted)
-
-		// 	if err != nil {
-		// 		retries++
-		// 		retryInterval := w.cfg.Webhook.RetryIntervals[retries-1]
-
-		// 		w.logger.Warn("Failed to update hosted checkout status ,will retry", map[string]interface{}{
-		// 			"error":          err.Error(),
-		// 			"operation":      "getHostedCheckout",
-		// 			"transaction_id": msg.TransactionID,
-		// 		})
-
-		// 		time.Sleep(retryInterval)
-		// 		continue
-		// 	}
-
-		// }
-
-		w.logger.Info("Payment status updated successfully", map[string]interface{}{
-			"transaction_id":  msg.TransactionID,
-			"attempts_needed": retries + 1,
-			"status":          msg.Status,
-		})
-		break
+		// Success - log and break
+		if retries > 0 {
+			w.logger.Info("Payment status updated successfully after retries", map[string]interface{}{
+				"transaction_id":  msg.TransactionID,
+				"attempts_needed": retries + 1,
+			})
+		}
+		return nil
 	}
 
-	if retries >= w.cfg.Webhook.MaxRetries {
-		err := fmt.Errorf("max retries exceeded for payment status update")
-		w.logger.Error("Failed to update payment status after all retries", map[string]interface{}{
-			"error":          err.Error(),
-			"transaction_id": msg.TransactionID,
-			"attempts_made":  retries,
-			"max_retries":    w.cfg.Webhook.MaxRetries,
-		})
-		return err
-	}
-
-	return nil
+	// All retries exhausted
+	err := fmt.Errorf("max retries exceeded for payment status update")
+	w.logger.Error("Failed to update payment status after all retries", map[string]interface{}{
+		"error":          err.Error(),
+		"transaction_id": msg.TransactionID,
+		"attempts_made":  retries,
+		"max_retries":    w.cfg.Webhook.MaxRetries,
+	})
+	return err
 }

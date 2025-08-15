@@ -17,6 +17,7 @@ const (
 
 // MerchantIDMiddleware creates a middleware that validates merchant ID from header
 func MerchantIDMiddleware() gin.HandlerFunc {
+	fmt.Println("[Merchant-Auth] Initializing Merchant ID Middleware")
 	return func(c *gin.Context) {
 		// Get merchant ID from header
 		merchantIDStr := c.GetHeader(HeaderMerchantID)
@@ -67,7 +68,7 @@ func MerchantIDMiddleware() gin.HandlerFunc {
 		// Store merchant ID in context
 		c.Set(ContextKeyMerchantID, merchantID)
 
-		fmt.Printf("[Merchant-Auth] Merchant ID %s validated for user %s\n", merchantID, session.User.Id)
+		fmt.Printf("[Merchant-Auth] Merchant ID %s validated for user %s\n", merchantID, session.UserID)
 		c.Next()
 	}
 }

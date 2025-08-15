@@ -10,8 +10,8 @@ import (
 	"github.com/socialpay/socialpay/src/pkg/auth/infra/network/http"
 	"github.com/socialpay/socialpay/src/pkg/bank/adapter/controller"
 
-	// Postgres Storage
-	"github.com/socialpay/socialpay/src/pkg/auth/infra/storage/psql"
+	// Shared Database
+	sharedDB "github.com/socialpay/socialpay/src/pkg/shared/database"
 	// SMS
 	"github.com/socialpay/socialpay/src/pkg/auth/adapter/gateway/sms"
 	// [AUTH]
@@ -72,21 +72,71 @@ import (
 	storageUsecase "github.com/socialpay/socialpay/src/pkg/storage/usecase"
 )
 
+// @title           SocialPay API V1
+// @version         1.0
+// @description     SocialPay API V1 documentation - Legacy API with authentication, merchant management, ERP, and payment processing
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.socialpay.com/support
+// @contact.email  support@socialpay.com
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      196.190.251.194:8082
+// @BasePath  /api/v1/
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Bearer token authentication for protected endpoints. Use format: "Bearer {token}"
+// @bearerFormat JWT
+
+// @tag.name Authentication
+// @tag.description Authentication and authorization endpoints
+
+// @tag.name Merchants
+// @tag.description Merchant management and operations
+
+// @tag.name ERP
+// @tag.description Enterprise Resource Planning operations
+
+// @tag.name Account
+// @tag.description User account management
+
+// @tag.name Key
+// @tag.description API key management
+
+// @tag.name Gateway
+// @tag.description Payment gateway management
+
+// @tag.name Help
+// @tag.description Help and support endpoints
+
+// @tag.name Organization
+// @tag.description Organization management
+
+// @tag.name Storage
+// @tag.description File storage operations
+
+// @tag.name Access Control
+// @tag.description Access control and permissions
+
+// @tag.name Checkout
+// @tag.description Checkout and payment processing
+
 func main() {
 	log := log.New(os.Stdout, "[SOCIALPAY1]", log.Lmsgprefix|log.Ldate|log.Ltime|log.Lshortfile)
 
 	// [Output Adapters]
-	// [DB] Postgres
-	db, err := psql.New(log)
+	// [DB] Postgres - Use shared connection
+	db, err := sharedDB.GetSharedConnection()
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal("Failed to get shared database connection:", err.Error())
 	}
-	defer db.Close()
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	db.SetConnMaxIdleTime(2 * time.Minute)
+	log.Println("Using shared database connection for v1 API")
 
 	// Test the database connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

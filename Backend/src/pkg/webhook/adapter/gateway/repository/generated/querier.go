@@ -12,18 +12,12 @@ import (
 
 type Querier interface {
 	CreateCallbackLog(ctx context.Context, arg CreateCallbackLogParams) error
-	CreateMerchantWallet(ctx context.Context, arg CreateMerchantWalletParams) error
 	GetAllCallbackLogs(ctx context.Context, arg GetAllCallbackLogsParams) ([]WebhookCallbackLog, error)
 	GetCallbackLogByID(ctx context.Context, id uuid.UUID) (WebhookCallbackLog, error)
-	GetCallbackLogsByMerchantID(ctx context.Context, merchantID uuid.UUID) ([]WebhookCallbackLog, error)
+	GetCallbackLogsByMerchantID(ctx context.Context, arg GetCallbackLogsByMerchantIDParams) ([]WebhookCallbackLog, error)
 	GetCallbackLogsByStatus(ctx context.Context, status int32) ([]WebhookCallbackLog, error)
 	GetCallbackLogsByTransactionID(ctx context.Context, txnID uuid.UUID) ([]WebhookCallbackLog, error)
-	GetMerchantWalletByMerchantID(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error)
-	GetMerchantWalletByMerchantIDForUpdate(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error)
-	GetMerchantWalletByUserID(ctx context.Context, userID uuid.UUID) (MerchantWallet, error)
 	UpdateCallbackLog(ctx context.Context, arg UpdateCallbackLogParams) error
-	UpdateMerchantWallet(ctx context.Context, arg UpdateMerchantWalletParams) error
-	UpdateMerchantWalletAmountByMerchantID(ctx context.Context, arg UpdateMerchantWalletAmountByMerchantIDParams) error
 }
 
 var _ Querier = (*Queries)(nil)

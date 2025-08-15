@@ -20,7 +20,7 @@ type Repo interface {
 	RevokePermissionFromUser(userID uuid.UUID, permissionID uuid.UUID) error
 	GrantPermissionToGroup(groupID uuid.UUID, permissionID uuid.UUID) error
 	RevokePermissionFromGroup(groupID uuid.UUID, permissionID uuid.UUID) error
-	ListUserPermissions(userID uuid.UUID) ([]entity.Permission, error)
+	ListUserPermissions(userID uuid.UUID, resourceName string) ([]entity.Permission, error)
 	ListGroupPermissions(groupID uuid.UUID) ([]entity.Permission, error)
 	CreatePermission(resourceID string, resource uuid.UUID, operation []uuid.UUID, effect string) (*entity.Permission, error)
 	DeletePermission(resourceID uuid.UUID, permissionID uuid.UUID) error
@@ -32,12 +32,13 @@ type Repo interface {
 	UpdateResource(resourceID uuid.UUID, name, description string, operations []uuid.UUID) (*entity.Resource, error)
 	DeleteResource(resourceID uuid.UUID) error
 	GetResourceByID(resourceID uuid.UUID) (*entity.Resource, error)
+	GetResourceByName(name string) (*entity.Resource, error)
 
 	// Operations
-
 	CreateOperations(name string, description string) (*entity.Operation, error)
 	UpdateOperations(id uuid.UUID, name string, description string) (*entity.Operation, error)
 	DeleteOperations(id uuid.UUID) error
 	GetOperationsByID(id uuid.UUID) (*entity.Operation, error)
 	ListOperations() ([]*entity.Operation, error)
+	GetOperationByName(name string) (*entity.Operation, error)
 }

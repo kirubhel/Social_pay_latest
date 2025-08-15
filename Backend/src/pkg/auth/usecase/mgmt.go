@@ -1,15 +1,17 @@
 package usecase
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"time"
 
 	"github.com/socialpay/socialpay/src/pkg/auth/core/entity"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func (uc Usecase) GetUserByPhoneNumber(phoneId uuid.UUID) (entity.User, error) {
+
 	var ErrUserNotFound string = "USER_NOT_FOUND"
 
 	user, err := uc.repo.FindUserUsingPhoneIdentity(phoneId)
@@ -22,18 +24,11 @@ func (uc Usecase) GetUserByPhoneNumber(phoneId uuid.UUID) (entity.User, error) {
 	return *user, nil
 }
 
-func hashPassword(password string) (string, error) {
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hashedBytes), nil
-}
-
 func (uc Usecase) CreatePasswordIdentity(userId uuid.UUID, password string, hint string) (*entity.PasswordIdentity, error) {
 	var identity entity.PasswordIdentity
 
-	hashedPassword, err := hashPassword(password)
+	hasher := sha256.New()
+	_, err := hasher.Write([]byte(password))
 	if err != nil {
 		return nil, Error{
 			Type:    "ERRCRATINGPASS",
@@ -44,7 +39,7 @@ func (uc Usecase) CreatePasswordIdentity(userId uuid.UUID, password string, hint
 	identity = entity.PasswordIdentity{
 		Id:        uuid.New(),
 		User:      entity.User{Id: userId},
-		Password:  hashedPassword,
+		Password:  base64.URLEncoding.EncodeToString(hasher.Sum(nil)),
 		Hint:      hint,
 		CreatedAt: time.Now(),
 	}
@@ -59,15 +54,4 @@ func (uc Usecase) CreatePasswordIdentity(userId uuid.UUID, password string, hint
 	}
 
 	return &identity, nil
-}
-
-func (uc Usecase) GetUserWithPhoneById(id uuid.UUID) (*entity.User, error) {
-	user, err := uc.repo.FindUserWithPhoneById(id)
-	if err != nil {
-		return nil, Error{
-			Type:    "USER_NOT_FOUND",
-			Message: err.Error(),
-		}
-	}
-	return user, nil
 }

@@ -13,9 +13,9 @@ import (
 
 const createMerchantWallet = `-- name: CreateMerchantWallet :exec
 INSERT INTO merchant.wallet (
-    id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at
+    id, user_id, merchant_id, amount, locked_amount, currency, wallet_type, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
 )
 `
 
@@ -26,14 +26,8 @@ type CreateMerchantWalletParams struct {
 	Amount       float64   `json:"amount"`
 	LockedAmount float64   `json:"locked_amount"`
 	Currency     string    `json:"currency"`
+	WalletType   string    `json:"wallet_type"`
 }
-
-// @Param id path string true "ID (UUID)"
-// @Param user_id path string true "User ID (UUID)"
-// @Param merchant_id path string true "Merchant ID (UUID)"
-// @Param amount query number true "Amount"
-// @Param locked_amount query number false "Locked Amount"
-// @Param currency query string true "Currency code"
 
 func (q *Queries) CreateMerchantWallet(ctx context.Context, arg CreateMerchantWalletParams) error {
 	_, err := q.exec(ctx, q.createMerchantWalletStmt, createMerchantWallet,
@@ -43,31 +37,18 @@ func (q *Queries) CreateMerchantWallet(ctx context.Context, arg CreateMerchantWa
 		arg.Amount,
 		arg.LockedAmount,
 		arg.Currency,
+		arg.WalletType,
 	)
 	return err
 }
 
-const deactivateMerchantWallet = `-- name: DeactivateMerchantWallet :exec
-UPDATE merchant.wallet
-SET is_active = false,
-    updated_at = NOW()
-WHERE id = $1
+const getAdminWallet = `-- name: GetAdminWallet :one
+SELECT id, user_id, merchant_id, amount, locked_amount, currency, wallet_type, created_at, updated_at FROM merchant.wallet
+WHERE  wallet_type = 'super_admin'
 `
 
-// @param id uuid
-func (q *Queries) DeactivateMerchantWallet(ctx context.Context, id uuid.UUID) error {
-	_, err := q.exec(ctx, q.deactivateMerchantWalletStmt, deactivateMerchantWallet, id)
-	return err
-}
-
-const getMerchantWallet = `-- name: GetMerchantWallet :one
-SELECT id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at FROM merchant.wallet
-WHERE merchant_id = $1
-`
-
-// @param merchant_id uuid
-func (q *Queries) GetMerchantWallet(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error) {
-	row := q.queryRow(ctx, q.getMerchantWalletStmt, getMerchantWallet, merchantID)
+func (q *Queries) GetAdminWallet(ctx context.Context) (MerchantWallet, error) {
+	row := q.queryRow(ctx, q.getAdminWalletStmt, getAdminWallet)
 	var i MerchantWallet
 	err := row.Scan(
 		&i.ID,
@@ -76,6 +57,30 @@ func (q *Queries) GetMerchantWallet(ctx context.Context, merchantID uuid.UUID) (
 		&i.Amount,
 		&i.LockedAmount,
 		&i.Currency,
+		&i.WalletType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getAdminWalletForUpdate = `-- name: GetAdminWalletForUpdate :one
+SELECT id, user_id, merchant_id, amount, locked_amount, currency, wallet_type, created_at, updated_at FROM merchant.wallet
+WHERE wallet_type = 'super_admin'
+FOR UPDATE
+`
+
+func (q *Queries) GetAdminWalletForUpdate(ctx context.Context) (MerchantWallet, error) {
+	row := q.queryRow(ctx, q.getAdminWalletForUpdateStmt, getAdminWalletForUpdate)
+	var i MerchantWallet
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.MerchantID,
+		&i.Amount,
+		&i.LockedAmount,
+		&i.Currency,
+		&i.WalletType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -83,11 +88,10 @@ func (q *Queries) GetMerchantWallet(ctx context.Context, merchantID uuid.UUID) (
 }
 
 const getMerchantWalletByMerchantID = `-- name: GetMerchantWalletByMerchantID :one
-SELECT id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at FROM merchant.wallet
-WHERE merchant_id = $1
+SELECT id, user_id, merchant_id, amount, locked_amount, currency, wallet_type, created_at, updated_at FROM merchant.wallet
+WHERE merchant_id = $1 AND wallet_type = 'merchant'
 `
 
-// @param merchant_id uuid
 func (q *Queries) GetMerchantWalletByMerchantID(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error) {
 	row := q.queryRow(ctx, q.getMerchantWalletByMerchantIDStmt, getMerchantWalletByMerchantID, merchantID)
 	var i MerchantWallet
@@ -98,6 +102,30 @@ func (q *Queries) GetMerchantWalletByMerchantID(ctx context.Context, merchantID 
 		&i.Amount,
 		&i.LockedAmount,
 		&i.Currency,
+		&i.WalletType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getMerchantWalletByMerchantIDForUpdate = `-- name: GetMerchantWalletByMerchantIDForUpdate :one
+SELECT id, user_id, merchant_id, amount, locked_amount, currency, wallet_type, created_at, updated_at FROM merchant.wallet
+WHERE merchant_id = $1 AND wallet_type = 'merchant'
+FOR UPDATE
+`
+
+func (q *Queries) GetMerchantWalletByMerchantIDForUpdate(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error) {
+	row := q.queryRow(ctx, q.getMerchantWalletByMerchantIDForUpdateStmt, getMerchantWalletByMerchantIDForUpdate, merchantID)
+	var i MerchantWallet
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.MerchantID,
+		&i.Amount,
+		&i.LockedAmount,
+		&i.Currency,
+		&i.WalletType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -105,11 +133,10 @@ func (q *Queries) GetMerchantWalletByMerchantID(ctx context.Context, merchantID 
 }
 
 const getMerchantWalletByUserID = `-- name: GetMerchantWalletByUserID :one
-SELECT id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at FROM merchant.wallet
-WHERE user_id = $1
+SELECT id, user_id, merchant_id, amount, locked_amount, currency, wallet_type, created_at, updated_at FROM merchant.wallet
+WHERE user_id = $1 AND wallet_type = 'merchant'
 `
 
-// @param user_id uuid
 func (q *Queries) GetMerchantWalletByUserID(ctx context.Context, userID uuid.UUID) (MerchantWallet, error) {
 	row := q.queryRow(ctx, q.getMerchantWalletByUserIDStmt, getMerchantWalletByUserID, userID)
 	var i MerchantWallet
@@ -120,32 +147,33 @@ func (q *Queries) GetMerchantWalletByUserID(ctx context.Context, userID uuid.UUI
 		&i.Amount,
 		&i.LockedAmount,
 		&i.Currency,
+		&i.WalletType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getMerchantWalletForUpdate = `-- name: GetMerchantWalletForUpdate :one
-SELECT id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at FROM merchant.wallet
-WHERE merchant_id = $1
-FOR UPDATE
+const getTotalAdminWalletAmount = `-- name: GetTotalAdminWalletAmount :one
+SELECT 
+    CAST(SUM(amount) AS FLOAT) as total_amount,
+    CAST(SUM(locked_amount) AS FLOAT) as total_locked_amount,
+    currency
+FROM merchant.wallet
+WHERE wallet_type = 'super_admin'
+GROUP BY currency
 `
 
-// @param merchant_id uuid
-func (q *Queries) GetMerchantWalletForUpdate(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error) {
-	row := q.queryRow(ctx, q.getMerchantWalletForUpdateStmt, getMerchantWalletForUpdate, merchantID)
-	var i MerchantWallet
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.MerchantID,
-		&i.Amount,
-		&i.LockedAmount,
-		&i.Currency,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
+type GetTotalAdminWalletAmountRow struct {
+	TotalAmount       float64 `json:"total_amount"`
+	TotalLockedAmount float64 `json:"total_locked_amount"`
+	Currency          string  `json:"currency"`
+}
+
+func (q *Queries) GetTotalAdminWalletAmount(ctx context.Context) (GetTotalAdminWalletAmountRow, error) {
+	row := q.queryRow(ctx, q.getTotalAdminWalletAmountStmt, getTotalAdminWalletAmount)
+	var i GetTotalAdminWalletAmountRow
+	err := row.Scan(&i.TotalAmount, &i.TotalLockedAmount, &i.Currency)
 	return i, err
 }
 
@@ -163,45 +191,24 @@ type UpdateMerchantWalletParams struct {
 	LockedAmount float64   `json:"locked_amount"`
 }
 
-// @param id uuid
-// @param amount numeric
-// @param locked_amount numeric
 func (q *Queries) UpdateMerchantWallet(ctx context.Context, arg UpdateMerchantWalletParams) error {
 	_, err := q.exec(ctx, q.updateMerchantWalletStmt, updateMerchantWallet, arg.ID, arg.Amount, arg.LockedAmount)
 	return err
 }
 
-const updateMerchantWalletLastSync = `-- name: UpdateMerchantWalletLastSync :exec
-UPDATE merchant.wallet
-SET last_sync_at = NOW(),
-    updated_at = NOW()
-WHERE id = $1 AND is_active = true
-`
-
-// @param id uuid
-func (q *Queries) UpdateMerchantWalletLastSync(ctx context.Context, id uuid.UUID) error {
-	_, err := q.exec(ctx, q.updateMerchantWalletLastSyncStmt, updateMerchantWalletLastSync, id)
-	return err
-}
-
-const updateMerchantWalletWithTx = `-- name: UpdateMerchantWalletWithTx :exec
+const updateMerchantWalletAmountByMerchantID = `-- name: UpdateMerchantWalletAmountByMerchantID :exec
 UPDATE merchant.wallet
 SET amount = $2,
-    locked_amount = $3,
     updated_at = NOW()
-WHERE id = $1
+WHERE merchant_id = $1 AND wallet_type = 'merchant'
 `
 
-type UpdateMerchantWalletWithTxParams struct {
-	ID           uuid.UUID `json:"id"`
-	Amount       float64   `json:"amount"`
-	LockedAmount float64   `json:"locked_amount"`
+type UpdateMerchantWalletAmountByMerchantIDParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Amount     float64   `json:"amount"`
 }
 
-// @param id uuid
-// @param amount numeric
-// @param locked_amount numeric
-func (q *Queries) UpdateMerchantWalletWithTx(ctx context.Context, arg UpdateMerchantWalletWithTxParams) error {
-	_, err := q.exec(ctx, q.updateMerchantWalletWithTxStmt, updateMerchantWalletWithTx, arg.ID, arg.Amount, arg.LockedAmount)
+func (q *Queries) UpdateMerchantWalletAmountByMerchantID(ctx context.Context, arg UpdateMerchantWalletAmountByMerchantIDParams) error {
+	_, err := q.exec(ctx, q.updateMerchantWalletAmountByMerchantIDStmt, updateMerchantWalletAmountByMerchantID, arg.MerchantID, arg.Amount)
 	return err
 }

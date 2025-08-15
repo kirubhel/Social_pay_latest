@@ -27,29 +27,29 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createMerchantWalletStmt, err = db.PrepareContext(ctx, createMerchantWallet); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateMerchantWallet: %w", err)
 	}
-	if q.deactivateMerchantWalletStmt, err = db.PrepareContext(ctx, deactivateMerchantWallet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeactivateMerchantWallet: %w", err)
+	if q.getAdminWalletStmt, err = db.PrepareContext(ctx, getAdminWallet); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAdminWallet: %w", err)
 	}
-	if q.getMerchantWalletStmt, err = db.PrepareContext(ctx, getMerchantWallet); err != nil {
-		return nil, fmt.Errorf("error preparing query GetMerchantWallet: %w", err)
+	if q.getAdminWalletForUpdateStmt, err = db.PrepareContext(ctx, getAdminWalletForUpdate); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAdminWalletForUpdate: %w", err)
 	}
 	if q.getMerchantWalletByMerchantIDStmt, err = db.PrepareContext(ctx, getMerchantWalletByMerchantID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetMerchantWalletByMerchantID: %w", err)
 	}
+	if q.getMerchantWalletByMerchantIDForUpdateStmt, err = db.PrepareContext(ctx, getMerchantWalletByMerchantIDForUpdate); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMerchantWalletByMerchantIDForUpdate: %w", err)
+	}
 	if q.getMerchantWalletByUserIDStmt, err = db.PrepareContext(ctx, getMerchantWalletByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetMerchantWalletByUserID: %w", err)
 	}
-	if q.getMerchantWalletForUpdateStmt, err = db.PrepareContext(ctx, getMerchantWalletForUpdate); err != nil {
-		return nil, fmt.Errorf("error preparing query GetMerchantWalletForUpdate: %w", err)
+	if q.getTotalAdminWalletAmountStmt, err = db.PrepareContext(ctx, getTotalAdminWalletAmount); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTotalAdminWalletAmount: %w", err)
 	}
 	if q.updateMerchantWalletStmt, err = db.PrepareContext(ctx, updateMerchantWallet); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateMerchantWallet: %w", err)
 	}
-	if q.updateMerchantWalletLastSyncStmt, err = db.PrepareContext(ctx, updateMerchantWalletLastSync); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateMerchantWalletLastSync: %w", err)
-	}
-	if q.updateMerchantWalletWithTxStmt, err = db.PrepareContext(ctx, updateMerchantWalletWithTx); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateMerchantWalletWithTx: %w", err)
+	if q.updateMerchantWalletAmountByMerchantIDStmt, err = db.PrepareContext(ctx, updateMerchantWalletAmountByMerchantID); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateMerchantWalletAmountByMerchantID: %w", err)
 	}
 	return &q, nil
 }
@@ -61,14 +61,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createMerchantWalletStmt: %w", cerr)
 		}
 	}
-	if q.deactivateMerchantWalletStmt != nil {
-		if cerr := q.deactivateMerchantWalletStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deactivateMerchantWalletStmt: %w", cerr)
+	if q.getAdminWalletStmt != nil {
+		if cerr := q.getAdminWalletStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAdminWalletStmt: %w", cerr)
 		}
 	}
-	if q.getMerchantWalletStmt != nil {
-		if cerr := q.getMerchantWalletStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getMerchantWalletStmt: %w", cerr)
+	if q.getAdminWalletForUpdateStmt != nil {
+		if cerr := q.getAdminWalletForUpdateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAdminWalletForUpdateStmt: %w", cerr)
 		}
 	}
 	if q.getMerchantWalletByMerchantIDStmt != nil {
@@ -76,14 +76,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getMerchantWalletByMerchantIDStmt: %w", cerr)
 		}
 	}
+	if q.getMerchantWalletByMerchantIDForUpdateStmt != nil {
+		if cerr := q.getMerchantWalletByMerchantIDForUpdateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMerchantWalletByMerchantIDForUpdateStmt: %w", cerr)
+		}
+	}
 	if q.getMerchantWalletByUserIDStmt != nil {
 		if cerr := q.getMerchantWalletByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getMerchantWalletByUserIDStmt: %w", cerr)
 		}
 	}
-	if q.getMerchantWalletForUpdateStmt != nil {
-		if cerr := q.getMerchantWalletForUpdateStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getMerchantWalletForUpdateStmt: %w", cerr)
+	if q.getTotalAdminWalletAmountStmt != nil {
+		if cerr := q.getTotalAdminWalletAmountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTotalAdminWalletAmountStmt: %w", cerr)
 		}
 	}
 	if q.updateMerchantWalletStmt != nil {
@@ -91,14 +96,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateMerchantWalletStmt: %w", cerr)
 		}
 	}
-	if q.updateMerchantWalletLastSyncStmt != nil {
-		if cerr := q.updateMerchantWalletLastSyncStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateMerchantWalletLastSyncStmt: %w", cerr)
-		}
-	}
-	if q.updateMerchantWalletWithTxStmt != nil {
-		if cerr := q.updateMerchantWalletWithTxStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateMerchantWalletWithTxStmt: %w", cerr)
+	if q.updateMerchantWalletAmountByMerchantIDStmt != nil {
+		if cerr := q.updateMerchantWalletAmountByMerchantIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateMerchantWalletAmountByMerchantIDStmt: %w", cerr)
 		}
 	}
 	return err
@@ -138,17 +138,17 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                DBTX
-	tx                                *sql.Tx
-	createMerchantWalletStmt          *sql.Stmt
-	deactivateMerchantWalletStmt      *sql.Stmt
-	getMerchantWalletStmt             *sql.Stmt
-	getMerchantWalletByMerchantIDStmt *sql.Stmt
-	getMerchantWalletByUserIDStmt     *sql.Stmt
-	getMerchantWalletForUpdateStmt    *sql.Stmt
-	updateMerchantWalletStmt          *sql.Stmt
-	updateMerchantWalletLastSyncStmt  *sql.Stmt
-	updateMerchantWalletWithTxStmt    *sql.Stmt
+	db                                         DBTX
+	tx                                         *sql.Tx
+	createMerchantWalletStmt                   *sql.Stmt
+	getAdminWalletStmt                         *sql.Stmt
+	getAdminWalletForUpdateStmt                *sql.Stmt
+	getMerchantWalletByMerchantIDStmt          *sql.Stmt
+	getMerchantWalletByMerchantIDForUpdateStmt *sql.Stmt
+	getMerchantWalletByUserIDStmt              *sql.Stmt
+	getTotalAdminWalletAmountStmt              *sql.Stmt
+	updateMerchantWalletStmt                   *sql.Stmt
+	updateMerchantWalletAmountByMerchantIDStmt *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -156,13 +156,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                                tx,
 		tx:                                tx,
 		createMerchantWalletStmt:          q.createMerchantWalletStmt,
-		deactivateMerchantWalletStmt:      q.deactivateMerchantWalletStmt,
-		getMerchantWalletStmt:             q.getMerchantWalletStmt,
+		getAdminWalletStmt:                q.getAdminWalletStmt,
+		getAdminWalletForUpdateStmt:       q.getAdminWalletForUpdateStmt,
 		getMerchantWalletByMerchantIDStmt: q.getMerchantWalletByMerchantIDStmt,
-		getMerchantWalletByUserIDStmt:     q.getMerchantWalletByUserIDStmt,
-		getMerchantWalletForUpdateStmt:    q.getMerchantWalletForUpdateStmt,
-		updateMerchantWalletStmt:          q.updateMerchantWalletStmt,
-		updateMerchantWalletLastSyncStmt:  q.updateMerchantWalletLastSyncStmt,
-		updateMerchantWalletWithTxStmt:    q.updateMerchantWalletWithTxStmt,
+		getMerchantWalletByMerchantIDForUpdateStmt: q.getMerchantWalletByMerchantIDForUpdateStmt,
+		getMerchantWalletByUserIDStmt:              q.getMerchantWalletByUserIDStmt,
+		getTotalAdminWalletAmountStmt:              q.getTotalAdminWalletAmountStmt,
+		updateMerchantWalletStmt:                   q.updateMerchantWalletStmt,
+		updateMerchantWalletAmountByMerchantIDStmt: q.updateMerchantWalletAmountByMerchantIDStmt,
 	}
 }

@@ -7,13 +7,164 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
+
+const createMerchantContact = `-- name: CreateMerchantContact :exec
+INSERT INTO merchants.contacts(
+    id, 
+    merchant_id, 
+    contact_type, 
+    first_name, 
+    last_name, 
+    email, 
+    phone_number,
+    created_at, 
+    updated_at
+)
+VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+
+type CreateMerchantContactParams struct {
+	ID          uuid.UUID `json:"id"`
+	MerchantID  uuid.UUID `json:"merchant_id"`
+	ContactType string    `json:"contact_type"`
+	FirstName   string    `json:"first_name"`
+	LastName    string    `json:"last_name"`
+	Email       string    `json:"email"`
+	PhoneNumber string    `json:"phone_number"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) CreateMerchantContact(ctx context.Context, arg CreateMerchantContactParams) error {
+	_, err := q.db.ExecContext(ctx, createMerchantContact,
+		arg.ID,
+		arg.MerchantID,
+		arg.ContactType,
+		arg.FirstName,
+		arg.LastName,
+		arg.Email,
+		arg.PhoneNumber,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createMerchantDocument = `-- name: CreateMerchantDocument :exec
+INSERT INTO merchants.documents(
+    id, 
+    merchant_id, 
+    document_type, 
+    file_url, 
+    status, 
+    created_at, 
+    updated_at
+)
+VALUES($1, $2, $3, $4, $5, $6, $7)
+`
+
+type CreateMerchantDocumentParams struct {
+	ID           uuid.UUID `json:"id"`
+	MerchantID   uuid.UUID `json:"merchant_id"`
+	DocumentType string    `json:"document_type"`
+	FileUrl      string    `json:"file_url"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+func (q *Queries) CreateMerchantDocument(ctx context.Context, arg CreateMerchantDocumentParams) error {
+	_, err := q.db.ExecContext(ctx, createMerchantDocument,
+		arg.ID,
+		arg.MerchantID,
+		arg.DocumentType,
+		arg.FileUrl,
+		arg.Status,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const deleteMerchant = `-- name: DeleteMerchant :exec
+UPDATE merchants.merchants SET deleted_at = $2 WHERE id = $1
+`
+
+type DeleteMerchantParams struct {
+	ID        uuid.UUID    `json:"id"`
+	DeletedAt sql.NullTime `json:"deleted_at"`
+}
+
+func (q *Queries) DeleteMerchant(ctx context.Context, arg DeleteMerchantParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMerchant, arg.ID, arg.DeletedAt)
+	return err
+}
+
+const deleteMerchants = `-- name: DeleteMerchants :exec
+
+UPDATE merchants.merchants
+SET deleted_at = NOW()
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) DeleteMerchants(ctx context.Context, dollar_1 []uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteMerchants, pq.Array(dollar_1))
+	return err
+}
+
+const getAllMerchants = `-- name: GetAllMerchants :many
+SELECT id, user_id, legal_name, trading_name, business_registration_number, tax_identification_number, business_type, industry_category, is_betting_company, lottery_certificate_number, website_url, established_date, created_at, updated_at, deleted_at, status FROM merchants.merchants
+`
+
+func (q *Queries) GetAllMerchants(ctx context.Context) ([]MerchantsMerchant, error) {
+	rows, err := q.db.QueryContext(ctx, getAllMerchants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MerchantsMerchant
+	for rows.Next() {
+		var i MerchantsMerchant
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.LegalName,
+			&i.TradingName,
+			&i.BusinessRegistrationNumber,
+			&i.TaxIdentificationNumber,
+			&i.BusinessType,
+			&i.IndustryCategory,
+			&i.IsBettingCompany,
+			&i.LotteryCertificateNumber,
+			&i.WebsiteUrl,
+			&i.EstablishedDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const getMerchant = `-- name: GetMerchant :one
 
-SELECT id, user_id, legal_name, trading_name, business_registration_number, tax_identification_number, business_type, industry_category, is_betting_company, lottery_certificate_number, website_url, established_date, created_at, updated_at, status FROM merchants.merchants
+SELECT id, user_id, legal_name, trading_name, business_registration_number, tax_identification_number, business_type, industry_category, is_betting_company, lottery_certificate_number, website_url, established_date, created_at, updated_at, deleted_at, status FROM merchants.merchants
 WHERE id = $1
 `
 
@@ -36,6 +187,7 @@ func (q *Queries) GetMerchant(ctx context.Context, id uuid.UUID) (MerchantsMerch
 		&i.EstablishedDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 		&i.Status,
 	)
 	return i, err
@@ -128,7 +280,7 @@ func (q *Queries) GetMerchantBankAccounts(ctx context.Context, merchantID uuid.U
 }
 
 const getMerchantByUserID = `-- name: GetMerchantByUserID :one
-SELECT id, user_id, legal_name, trading_name, business_registration_number, tax_identification_number, business_type, industry_category, is_betting_company, lottery_certificate_number, website_url, established_date, created_at, updated_at, status FROM merchants.merchants
+SELECT id, user_id, legal_name, trading_name, business_registration_number, tax_identification_number, business_type, industry_category, is_betting_company, lottery_certificate_number, website_url, established_date, created_at, updated_at, deleted_at, status FROM merchants.merchants
 WHERE user_id = $1
 `
 
@@ -150,6 +302,7 @@ func (q *Queries) GetMerchantByUserID(ctx context.Context, userID uuid.UUID) (Me
 		&i.EstablishedDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 		&i.Status,
 	)
 	return i, err
@@ -194,6 +347,31 @@ func (q *Queries) GetMerchantContacts(ctx context.Context, merchantID uuid.UUID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const getMerchantDocument = `-- name: GetMerchantDocument :one
+SELECT id, merchant_id, document_type, document_number, file_url, file_hash, verified_by, verified_at, status, rejection_reason, created_at, updated_at FROM merchants.documents
+WHERE id = $1
+`
+
+func (q *Queries) GetMerchantDocument(ctx context.Context, id uuid.UUID) (MerchantsDocument, error) {
+	row := q.db.QueryRowContext(ctx, getMerchantDocument, id)
+	var i MerchantsDocument
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.DocumentType,
+		&i.DocumentNumber,
+		&i.FileUrl,
+		&i.FileHash,
+		&i.VerifiedBy,
+		&i.VerifiedAt,
+		&i.Status,
+		&i.RejectionReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getMerchantDocuments = `-- name: GetMerchantDocuments :many
@@ -261,4 +439,327 @@ func (q *Queries) GetMerchantSettings(ctx context.Context, merchantID uuid.UUID)
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getMerchantStats = `-- name: GetMerchantStats :one
+SELECT 
+    COUNT(*) as total_merchants,
+    COUNT(CASE WHEN status = 'active' THEN 1 END) as active_merchants,
+    COUNT(CASE WHEN status = 'pending_verification' THEN 1 END) as pending_kyc,
+    COUNT(CASE WHEN created_at >= date_trunc('month', CURRENT_DATE) THEN 1 END) as new_this_month
+FROM merchants.merchants
+WHERE deleted_at IS NULL
+`
+
+type GetMerchantStatsRow struct {
+	TotalMerchants  int64 `json:"total_merchants"`
+	ActiveMerchants int64 `json:"active_merchants"`
+	PendingKyc      int64 `json:"pending_kyc"`
+	NewThisMonth    int64 `json:"new_this_month"`
+}
+
+func (q *Queries) GetMerchantStats(ctx context.Context) (GetMerchantStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getMerchantStats)
+	var i GetMerchantStatsRow
+	err := row.Scan(
+		&i.TotalMerchants,
+		&i.ActiveMerchants,
+		&i.PendingKyc,
+		&i.NewThisMonth,
+	)
+	return i, err
+}
+
+const searchMerchants = `-- name: SearchMerchants :many
+WITH search_results AS (
+    SELECT
+        id, user_id, legal_name, trading_name, business_registration_number, tax_identification_number, business_type, industry_category, is_betting_company, lottery_certificate_number, website_url, established_date, created_at, updated_at, deleted_at, status,
+        COUNT(*) OVER() AS total_count
+    FROM
+        merchants.merchants
+    WHERE
+        (
+            LOWER(coalesce(legal_name, '')) LIKE '%' || LOWER($1) || '%'
+            OR LOWER(coalesce(trading_name, '')) LIKE '%' || LOWER($1) || '%'
+            OR LOWER(coalesce(business_registration_number, '')) LIKE '%' || LOWER($1) || '%'
+            OR LOWER(coalesce(tax_identification_number, '')) LIKE '%' || LOWER($1) || '%'
+            OR LOWER(coalesce(business_type, '')) LIKE '%' || LOWER($1) || '%'
+            OR LOWER(coalesce(industry_category, '')) LIKE '%' || LOWER($1) || '%'
+            OR $1 = ''
+        )
+        AND (
+            ($4 != '0001-01-01 00:00:00+00'::timestamptz AND created_at >= $4::timestamptz)
+            OR $4 = '0001-01-01 00:00:00+00'
+        )
+        AND (
+            ($5 != '0001-01-01 00:00:00+00'::timestamptz AND created_at <= $5::timestamptz)
+            OR $5 = '0001-01-01 00:00:00+00'
+        )
+        AND (
+            -- Filter by status if provided
+            (status = $6 OR $6 = '')
+        ) 
+        AND deleted_at IS NULL
+    ORDER BY
+        created_at DESC
+    LIMIT $2
+    OFFSET $3
+)
+SELECT
+    id,
+    user_id,
+    legal_name,
+    trading_name,
+    business_registration_number,
+    tax_identification_number,
+    business_type,
+    industry_category,
+    is_betting_company,
+    lottery_certificate_number,
+    website_url,
+    established_date,
+    created_at,
+    updated_at,
+    status,
+    total_count
+FROM
+    search_results
+`
+
+type SearchMerchantsParams struct {
+	Lower   string      `json:"lower"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+	Column4 interface{} `json:"column_4"`
+	Column5 interface{} `json:"column_5"`
+	Status  string      `json:"status"`
+}
+
+type SearchMerchantsRow struct {
+	ID                         uuid.UUID      `json:"id"`
+	UserID                     uuid.UUID      `json:"user_id"`
+	LegalName                  string         `json:"legal_name"`
+	TradingName                sql.NullString `json:"trading_name"`
+	BusinessRegistrationNumber string         `json:"business_registration_number"`
+	TaxIdentificationNumber    string         `json:"tax_identification_number"`
+	BusinessType               string         `json:"business_type"`
+	IndustryCategory           sql.NullString `json:"industry_category"`
+	IsBettingCompany           sql.NullBool   `json:"is_betting_company"`
+	LotteryCertificateNumber   sql.NullString `json:"lottery_certificate_number"`
+	WebsiteUrl                 sql.NullString `json:"website_url"`
+	EstablishedDate            sql.NullTime   `json:"established_date"`
+	CreatedAt                  time.Time      `json:"created_at"`
+	UpdatedAt                  time.Time      `json:"updated_at"`
+	Status                     string         `json:"status"`
+	TotalCount                 int64          `json:"total_count"`
+}
+
+func (q *Queries) SearchMerchants(ctx context.Context, arg SearchMerchantsParams) ([]SearchMerchantsRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchMerchants,
+		arg.Lower,
+		arg.Limit,
+		arg.Offset,
+		arg.Column4,
+		arg.Column5,
+		arg.Status,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchMerchantsRow
+	for rows.Next() {
+		var i SearchMerchantsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.LegalName,
+			&i.TradingName,
+			&i.BusinessRegistrationNumber,
+			&i.TaxIdentificationNumber,
+			&i.BusinessType,
+			&i.IndustryCategory,
+			&i.IsBettingCompany,
+			&i.LotteryCertificateNumber,
+			&i.WebsiteUrl,
+			&i.EstablishedDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Status,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateMerchant = `-- name: UpdateMerchant :exec
+UPDATE merchants.merchants
+SET 
+    legal_name=$2, 
+    trading_name=$3, 
+    business_registration_number=$4, 
+    business_type=$5, 
+    industry_category=$6, 
+    is_betting_company=$7, 
+    lottery_certificate_number=$8, 
+    tax_identification_number=$9,
+    website_url=$10, 
+    established_date=$11, 
+    status=$12
+WHERE id = $1
+`
+
+type UpdateMerchantParams struct {
+	ID                         uuid.UUID      `json:"id"`
+	LegalName                  string         `json:"legal_name"`
+	TradingName                sql.NullString `json:"trading_name"`
+	BusinessRegistrationNumber string         `json:"business_registration_number"`
+	BusinessType               string         `json:"business_type"`
+	IndustryCategory           sql.NullString `json:"industry_category"`
+	IsBettingCompany           sql.NullBool   `json:"is_betting_company"`
+	LotteryCertificateNumber   sql.NullString `json:"lottery_certificate_number"`
+	TaxIdentificationNumber    string         `json:"tax_identification_number"`
+	WebsiteUrl                 sql.NullString `json:"website_url"`
+	EstablishedDate            sql.NullTime   `json:"established_date"`
+	Status                     string         `json:"status"`
+}
+
+func (q *Queries) UpdateMerchant(ctx context.Context, arg UpdateMerchantParams) error {
+	_, err := q.db.ExecContext(ctx, updateMerchant,
+		arg.ID,
+		arg.LegalName,
+		arg.TradingName,
+		arg.BusinessRegistrationNumber,
+		arg.BusinessType,
+		arg.IndustryCategory,
+		arg.IsBettingCompany,
+		arg.LotteryCertificateNumber,
+		arg.TaxIdentificationNumber,
+		arg.WebsiteUrl,
+		arg.EstablishedDate,
+		arg.Status,
+	)
+	return err
+}
+
+const updateMerchantContact = `-- name: UpdateMerchantContact :exec
+UPDATE merchants.contacts
+SET 
+    first_name=$2, 
+    last_name=$3, 
+    phone_number=$4, 
+    email=$5, 
+    is_verified=$6
+WHERE id=$1
+`
+
+type UpdateMerchantContactParams struct {
+	ID          uuid.UUID    `json:"id"`
+	FirstName   string       `json:"first_name"`
+	LastName    string       `json:"last_name"`
+	PhoneNumber string       `json:"phone_number"`
+	Email       string       `json:"email"`
+	IsVerified  sql.NullBool `json:"is_verified"`
+}
+
+func (q *Queries) UpdateMerchantContact(ctx context.Context, arg UpdateMerchantContactParams) error {
+	_, err := q.db.ExecContext(ctx, updateMerchantContact,
+		arg.ID,
+		arg.FirstName,
+		arg.LastName,
+		arg.PhoneNumber,
+		arg.Email,
+		arg.IsVerified,
+	)
+	return err
+}
+
+const updateMerchantDocument = `-- name: UpdateMerchantDocument :exec
+UPDATE merchants.documents
+SET
+    file_url=$2,
+    verified_by=$3, 
+    verified_at=$4, 
+    status=$5, 
+    rejection_reason=$6
+WHERE id=$1
+`
+
+type UpdateMerchantDocumentParams struct {
+	ID              uuid.UUID      `json:"id"`
+	FileUrl         string         `json:"file_url"`
+	VerifiedBy      uuid.NullUUID  `json:"verified_by"`
+	VerifiedAt      sql.NullTime   `json:"verified_at"`
+	Status          string         `json:"status"`
+	RejectionReason sql.NullString `json:"rejection_reason"`
+}
+
+func (q *Queries) UpdateMerchantDocument(ctx context.Context, arg UpdateMerchantDocumentParams) error {
+	_, err := q.db.ExecContext(ctx, updateMerchantDocument,
+		arg.ID,
+		arg.FileUrl,
+		arg.VerifiedBy,
+		arg.VerifiedAt,
+		arg.Status,
+		arg.RejectionReason,
+	)
+	return err
+}
+
+const updateMerchantDocumentWithType = `-- name: UpdateMerchantDocumentWithType :exec
+UPDATE merchants.documents
+SET
+    document_type=$2,
+    file_url=$3,
+    status=$4,
+    verified_by=$5, 
+    verified_at=$6, 
+    rejection_reason=$7
+WHERE id=$1
+`
+
+type UpdateMerchantDocumentWithTypeParams struct {
+	ID              uuid.UUID      `json:"id"`
+	DocumentType    string         `json:"document_type"`
+	FileUrl         string         `json:"file_url"`
+	Status          string         `json:"status"`
+	VerifiedBy      uuid.NullUUID  `json:"verified_by"`
+	VerifiedAt      sql.NullTime   `json:"verified_at"`
+	RejectionReason sql.NullString `json:"rejection_reason"`
+}
+
+func (q *Queries) UpdateMerchantDocumentWithType(ctx context.Context, arg UpdateMerchantDocumentWithTypeParams) error {
+	_, err := q.db.ExecContext(ctx, updateMerchantDocumentWithType,
+		arg.ID,
+		arg.DocumentType,
+		arg.FileUrl,
+		arg.Status,
+		arg.VerifiedBy,
+		arg.VerifiedAt,
+		arg.RejectionReason,
+	)
+	return err
+}
+
+const updateMerchantStatus = `-- name: UpdateMerchantStatus :exec
+UPDATE merchants.merchants SET status = $2 WHERE id = $1
+`
+
+type UpdateMerchantStatusParams struct {
+	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
+}
+
+func (q *Queries) UpdateMerchantStatus(ctx context.Context, arg UpdateMerchantStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateMerchantStatus, arg.ID, arg.Status)
+	return err
 }

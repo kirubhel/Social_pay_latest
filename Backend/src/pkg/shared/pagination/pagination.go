@@ -10,20 +10,18 @@ import (
 const (
 	DefaultPage    = 1
 	DefaultPerPage = 10
-	MaxPerPage     = 100
 )
 
 type Pagination struct {
 	Page    int `json:"page" form:"page" binding:"required,min=1"`
-	PerPage int `json:"page_size" form:"page_size" binding:"required,min=1,max=20"`
+	PerPage int `json:"page_size" form:"page_size" binding:"required,min=1"`
 }
 
-
 type PaginationInfo struct {
-	Pagination 
-	TotalItems int `json:"total_items"`
-	TotalPage int `json:"total_page"`
-	HasNextPage bool `json:"has_next_page"`
+	Pagination
+	TotalItems      int  `json:"total_items"`
+	TotalPage       int  `json:"total_page"`
+	HasNextPage     bool `json:"has_next_page"`
 	HasPerviousPage bool `json:"has_pervious"`
 }
 
@@ -42,10 +40,6 @@ func NewPagination(c *gin.Context, log logging.Logger) (*Pagination, error) {
 
 	}
 
-	if p.PerPage > MaxPerPage {
-		p.PerPage = MaxPerPage
-	}
-
 	if p.Page < 1 {
 		p.Page = DefaultPage
 	}
@@ -53,6 +47,7 @@ func NewPagination(c *gin.Context, log logging.Logger) (*Pagination, error) {
 	// returning pagination obj
 	return &p, nil
 }
+
 // offet
 func (p *Pagination) GetOffset() int {
 
@@ -62,28 +57,23 @@ func (p *Pagination) GetOffset() int {
 
 }
 
-//get limit
+// get limit
 func (p *Pagination) GetLimit() int {
 	return p.PerPage
 }
 
+// get pagination info
 
-// get pagination info 
+func (p *Pagination) GetInfo(totalItems int) PaginationInfo {
 
-
-func (p *Pagination)GetInfo(totalItems int) PaginationInfo {
-
-	// total item is the len of data 
-
-	// totalPages:=int(math.Ceil(float64(totalItems))/float64(p.PerPage))
-
+	// total item is the len of data
 	totalPages := int(math.Ceil(float64(totalItems) / float64(p.PerPage)))
 
 	return PaginationInfo{
-		Pagination: *p,
-		TotalItems: totalItems,
-		TotalPage: totalPages,
-		HasNextPage: p.Page < totalPages,
+		Pagination:      *p,
+		TotalItems:      totalItems,
+		TotalPage:       totalPages,
+		HasNextPage:     p.Page < totalPages,
 		HasPerviousPage: p.Page > 1,
 	}
 }

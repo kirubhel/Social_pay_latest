@@ -8,22 +8,20 @@ import (
 )
 
 type User struct {
-	Id                  uuid.UUID
-	SirName             string
-	FirstName           string
-	LastName            string
-	UserType            string
-	Gender              Gender
-	DateOfBirth         time.Time
-	Nationalities       []Nationality
-	Addresses           []Address
-	Identities          []Identity
-	TwoFactorEnabled    bool
-	TwoFactorVerifiedAt *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-	Phone               Phone
-	PhoneID             uuid.UUID
+	Id            uuid.UUID
+	SirName       string
+	FirstName     string
+	LastName      string
+	UserType      string
+	Gender        Gender
+	DateOfBirth   time.Time
+	Nationalities []Nationality
+	Addresses     []Address
+	Identities    []Identity
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Phone         Phone
+	PhoneID       uuid.UUID
 }
 
 type Gender string

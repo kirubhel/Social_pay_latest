@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"time"
@@ -75,14 +76,15 @@ func HandleSTKPushRequest(req USSDPushRequest) (map[string]interface{}, error) {
 	timestamp := time.Now().Format("20060102150405")
 	passkey := "141e624db2261261ac66fb74edecb5657aded57ad5358476605c7f6d7e199145"
 	password := generatePassword(req.BusinessShortCode, passkey, timestamp)
-	
+
+	formattedAmount := formatAmount(req.Amount)
 	reqWithCredentials := map[string]interface{}{
 		"MerchantRequestID": req.MerchantRequestID,
 		"BusinessShortCode": req.BusinessShortCode,
 		"Password":          password,
 		"Timestamp":         timestamp,
 		"TransactionType":   req.TransactionType,
-		"Amount":            req.Amount,
+		"Amount":            formattedAmount,
 		"PartyA":            req.PartyA,
 		"PartyB":            req.PartyB,
 		"PhoneNumber":       req.PhoneNumber,
@@ -91,7 +93,6 @@ func HandleSTKPushRequest(req USSDPushRequest) (map[string]interface{}, error) {
 		"TransactionDesc":   req.TransactionDesc,
 		"ReferenceData":     req.ReferenceData,
 	}
-
 	// Marshal the request payload to JSON
 	jsonData, err := json.MarshalIndent(reqWithCredentials, "", "  ")
 	if err != nil {
@@ -151,6 +152,7 @@ func HandleSTKPushRequest(req USSDPushRequest) (map[string]interface{}, error) {
 }
 
 func HandleB2CPaymentRequest(req B2CPaymentRequest) error {
+	req.Amount = formatAmount(req.Amount)
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		log.Printf("Problem marshalling B2C payment request: %v", err)
@@ -181,7 +183,6 @@ func HandleB2CPaymentRequest(req B2CPaymentRequest) error {
 	}
 	defer resp.Body.Close()
 
-	// Log the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Error reading response body: %v", err)
@@ -240,4 +241,8 @@ func getAccessToken() (string, error) {
 	}
 
 	return tokenResp.AccessToken, nil
+}
+
+func formatAmount(amount float64) float64 {
+	return math.Round(amount*100) / 100
 }

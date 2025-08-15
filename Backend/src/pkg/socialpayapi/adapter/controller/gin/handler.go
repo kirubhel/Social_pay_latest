@@ -2,28 +2,34 @@ package gin
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"slices"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/socialpay/socialpay/src/pkg/socialpayapi/core/entity"
-	"github.com/socialpay/socialpay/src/pkg/socialpayapi/usecase"
 	apikeyEntity "github.com/socialpay/socialpay/src/pkg/apikey_mgmt/core/entity"
 	qrEntity "github.com/socialpay/socialpay/src/pkg/qr/core/entity"
 	qrUsecase "github.com/socialpay/socialpay/src/pkg/qr/usecase"
 	"github.com/socialpay/socialpay/src/pkg/shared/logging"
+	ginn "github.com/socialpay/socialpay/src/pkg/shared/middleware/gin"
 	middleware "github.com/socialpay/socialpay/src/pkg/shared/middleware/gin"
+	"github.com/socialpay/socialpay/src/pkg/shared/payment"
+	"github.com/socialpay/socialpay/src/pkg/socialpayapi/core/entity"
+	"github.com/socialpay/socialpay/src/pkg/socialpayapi/usecase"
 	txnEntity "github.com/socialpay/socialpay/src/pkg/transaction/core/entity"
 	v2MerchantRepo "github.com/socialpay/socialpay/src/pkg/v2_merchant/core/repository"
+	settlementdto "github.com/socialpay/socialpay/src/pkg/webhook/adapter/dto"
+	webhookusecase "github.com/socialpay/socialpay/src/pkg/webhook/usecase"
 )
 
 var supportedMediumsDeposit = []txnEntity.TransactionMedium{txnEntity.MPESA, txnEntity.CBE, txnEntity.AWASH,
-	txnEntity.TELEBIRR, txnEntity.CYBERSOURCE, txnEntity.ETHSWITCH}
-var supportedMediumsWithdrawal = []txnEntity.TransactionMedium{txnEntity.CBE, txnEntity.TELEBIRR, txnEntity.CYBERSOURCE}
+	txnEntity.TELEBIRR, txnEntity.CYBERSOURCE, txnEntity.ETHSWITCH, txnEntity.KACHA}
+var supportedMediumsWithdrawal = []txnEntity.TransactionMedium{txnEntity.CBE, txnEntity.TELEBIRR, txnEntity.CYBERSOURCE, txnEntity.KACHA, txnEntity.MPESA}
 
 // @title           SocialPay Payment API
 // @version         1.0
@@ -31,13 +37,13 @@ var supportedMediumsWithdrawal = []txnEntity.TransactionMedium{txnEntity.CBE, tx
 // @termsOfService  http://swagger.io/terms/
 
 // @contact.name   API Support
-// @contact.url    http://www.Socialpay.com/support
-// @contact.email  support@Socialpay.com
+// @contact.url    http://www.socialpay.com/support
+// @contact.email  support@socialpay.com
 
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host      api.Socialpay.com
+// @host      api.socialpay.com
 // @BasePath  /payment
 
 // @securityDefinitions.apikey ApiKeyAuth
@@ -56,8 +62,10 @@ type Handler struct {
 	paymentUseCase usecase.PaymentUseCase
 	middleware     *gin.HandlerFunc
 	log            logging.Logger
+	ipChecker      ginn.IPCheckerMiddleware
 	merchantRepo   v2MerchantRepo.Repository
 	qrUseCase      qrUsecase.QRUseCase
+	webhookUseCase webhookusecase.WebhookUseCase
 }
 
 // NewHandler creates a new payment API handler
@@ -65,13 +73,17 @@ func NewHandler(
 	uc usecase.PaymentUseCase,
 	apiAuth gin.HandlerFunc,
 	merchantRepo v2MerchantRepo.Repository,
-	qrUseCase qrUsecase.QRUseCase) *Handler {
+	ipChecker ginn.IPCheckerMiddleware,
+	qrUseCase qrUsecase.QRUseCase,
+	webhookUseCase webhookusecase.WebhookUseCase) *Handler {
 	return &Handler{
 		paymentUseCase: uc,
 		middleware:     &apiAuth,
 		log:            logging.NewStdLogger("[SOCIALPAY-API]"),
 		merchantRepo:   merchantRepo,
+		ipChecker:      ipChecker,
 		qrUseCase:      qrUseCase,
+		webhookUseCase: webhookUseCase,
 	}
 }
 
@@ -395,7 +407,7 @@ func (h *Handler) GetReceipt(c *gin.Context) {
 		Status:          tx.Status,
 		Description:     tx.Description,
 		Token:           tx.Token,
-		Amount:          tx.Amount,
+		Amount:          tx.BaseAmount,
 		WebhookReceived: tx.WebhookReceived,
 		FeeAmount:       tx.FeeAmount,
 		AdminNet:        tx.AdminNet,
@@ -433,10 +445,42 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, newErrorResponse(err))
 		return
 	}
+	h.log.Info("Querying transaction", map[string]interface{}{
+		"transaction_id": query.ID,
+	})
 	tx, err := h.paymentUseCase.GetTransaction(c.Request.Context(), query.ID)
+	h.log.Info("Transaction", map[string]interface{}{
+		"transaction": tx,
+	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, newErrorResponse(err))
 		return
+	}
+
+	if tx.Status == txnEntity.PENDING && tx.CreatedAt.Before(time.Now().Add(-1*time.Minute*5)) {
+		// Query transaction status from provider
+		var id string
+
+		id = tx.ProviderTxId
+		if tx.Medium == "AWASH" {
+			id = tx.Id.String()
+		}
+		if tx.Medium == "CBE" {
+			id = tx.Id.String()
+		}
+		queryResp, err := h.paymentUseCase.QueryTransactionStatus(c.Request.Context(), tx.Medium, id)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, newErrorResponse(err))
+			return
+		}
+		if queryResp != nil {
+			if queryResp.Status != tx.Status {
+				tx.Status = queryResp.Status
+				tx.ProviderTxId = queryResp.ProviderTxId
+				tx.ProviderData = queryResp.ProviderData
+				h.dispatchWebhookSettlement(c, tx.Id, queryResp)
+			}
+		}
 	}
 
 	// Map transaction entity to response DTO
@@ -458,7 +502,7 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 		Status:          tx.Status,
 		Description:     tx.Description,
 		Token:           tx.Token,
-		Amount:          tx.Amount,
+		Amount:          tx.BaseAmount,
 		WebhookReceived: tx.WebhookReceived,
 		FeeAmount:       tx.FeeAmount,
 		AdminNet:        tx.AdminNet,
@@ -472,6 +516,42 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) dispatchWebhookSettlement(c *gin.Context, transactionID uuid.UUID, transactionStatusQueryResponse *payment.TransactionStatusQueryResponse) {
+
+	providerData, _ := json.Marshal(transactionStatusQueryResponse.ProviderData)
+
+	// Prepare webhook request
+	webhookReq := settlementdto.WebhookRequest{
+		TransactionID: transactionID.String(),
+		Status:        string(transactionStatusQueryResponse.Status),
+		Message:       "Transaction status updated by Transaction status query",
+		ProviderTxID:  transactionStatusQueryResponse.ProviderTxId,
+		ProviderData:  string(providerData),
+		Timestamp:     time.Now(),
+	}
+
+	h.log.Info("Dispatching webhook", map[string]interface{}{
+		"webhook_request": webhookReq,
+		"request_id":      c.GetHeader("X-Request-ID"),
+	})
+
+	// Dispatch webhook
+	if err := h.webhookUseCase.HandleWebhookDispatch(c.Request.Context(), webhookReq); err != nil {
+		h.log.Error("Failed to dispatch webhook", map[string]interface{}{
+			"error":      err.Error(),
+			"request_id": c.GetHeader("X-Request-ID"),
+		})
+		// Note: We don't return error to client as the payment was processed
+		// But we log it for debugging
+	}
+
+	h.log.Info("Settlement processing completed", map[string]interface{}{
+		"transaction_id": transactionID.String(),
+		"status":         transactionStatusQueryResponse.Status,
+		"request_id":     c.GetHeader("X-Request-ID"),
+	})
 }
 
 // RequestWithdrawal godoc
@@ -647,7 +727,7 @@ func (h *Handler) QRMerchantPayment(c *gin.Context) {
 	// Get callback URL from environment
 	baseURL := os.Getenv("APP_URL_V2")
 	if baseURL == "" {
-		baseURL = "http://localhost:8080" // fallback
+		baseURL = "http://196.190.251.194:8082" // fallback
 	}
 	callbackURL := fmt.Sprintf("%s/api/v2/qr/callback", baseURL)
 
@@ -827,7 +907,7 @@ func (h *Handler) GetHostedCheckout(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "QR Link ID"
-// @Success      200  {object}  entity.QRLinkResponse
+// @Success      200  {object}  qrEntity.QRLinkResponse
 // @Failure      400  {object}  ErrorResponse
 // @Failure      404  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse
@@ -859,8 +939,8 @@ func (h *Handler) GetQRLinkForPayment(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id      path      string                    true  "QR Link ID"
-// @Param        request body      entity.QRPaymentRequest   true  "QR payment request"
-// @Success      200  {object}  entity.QRPaymentResponse
+// @Param        request body      qrEntity.QRPaymentRequest   true  "QR payment request"
+// @Success      200  {object}  qrEntity.QRPaymentResponse
 // @Failure      400  {object}  ErrorResponse
 // @Failure      404  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse

@@ -72,8 +72,16 @@ func (r *CallbackRepositoryImpl) GetByStatus(ctx context.Context, status int) ([
 	return toEntityCallbackLogs(dbLogs), nil
 }
 
-func (r *CallbackRepositoryImpl) GetByMerchantID(ctx context.Context, merchantID uuid.UUID) ([]*entity.CallbackLog, error) {
-	dbLogs, err := r.queries.GetCallbackLogsByMerchantID(ctx, merchantID)
+func (r *CallbackRepositoryImpl) GetByMerchantID(ctx context.Context, merchantID uuid.UUID, pagination *txEntity.Pagination) ([]*entity.CallbackLog, error) {
+	// Calculate limit and offset
+	limit := int32(pagination.PageSize)
+	offset := int32((pagination.Page - 1) * pagination.PageSize)
+
+	dbLogs, err := r.queries.GetCallbackLogsByMerchantID(ctx, db.GetCallbackLogsByMerchantIDParams{
+		MerchantID: merchantID,
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
 		return nil, err
 	}

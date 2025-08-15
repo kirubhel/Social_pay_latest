@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -659,55 +658,54 @@ func (repo PsqlRepo) FindPasswordAuth(token string) (*entity.PasswordAuth, error
 }
 
 func (repo PsqlRepo) CheckPermission(userID uuid.UUID, requiredPermission entity.Permission) (bool, error) {
-	log.Printf("Checking permission for userID |||||||||   ||||||||||| %s with payload: %+v\n", userID, requiredPermission)
-
+	// First check direct user permissions
 	query := `
-        WITH create_operation AS (
-            SELECT id
+        WITH operation_id AS (
+            SELECT id, name
             FROM auth.operations
             WHERE name = $2
         ),
-        user_resource AS (
-            SELECT id
+        resource_id AS (
+            SELECT id, name
             FROM auth.resources
             WHERE name = $3
         )
-        SELECT p.resource, p.resource_id, o.name AS operation, p.effect
+        SELECT p.resource, p.resource_id, o.name AS operation, p.effect,
+               r.name as resource_name, oi.name as required_operation
         FROM auth.permissions p
         JOIN auth.user_permissions up ON up.permission_id = p.id
-        JOIN user_resource ur ON ur.id = p.resource
+        JOIN resource_id r ON r.id = p.resource
         LEFT JOIN auth.operations o ON o.id = ANY(p.operations)
+        CROSS JOIN operation_id oi
         WHERE up.user_id = $1
         AND EXISTS (
             SELECT 1
-            FROM create_operation co
-            WHERE co.id = ANY(p.operations)
+            FROM operation_id oi
+            WHERE oi.id = ANY(p.operations)
         )
-        AND p.effect = $4
-        AND p.resource_id = $5;
+        AND p.effect = $4;
     `
 
-	log.Printf("Query to fetch user permissions |||||||   ||||||| %s\n", query)
-
-	rowsUserPermissions, err := repo.db.Query(query, userID, requiredPermission.Operation, requiredPermission.Resource, requiredPermission.Effect, requiredPermission.ResourceIdentifier)
+	rowsUserPermissions, err := repo.db.Query(query, userID, requiredPermission.Operation, requiredPermission.Resource, requiredPermission.Effect)
 	if err != nil {
-		log.Printf("Failed to fetch user permissions ||||||| ||||||||| %v\n", err)
-		return false, fmt.Errorf("failed to fetch user permissions ||||| |||||||| %v", err)
+		log.Printf("[ERROR] Failed to fetch user permissions: %v", err)
+		return false, fmt.Errorf("failed to fetch user permissions: %v", err)
 	}
 	defer rowsUserPermissions.Close()
 
 	var permissionFound bool
 	for rowsUserPermissions.Next() {
 		var permission entity.Permission
-		if err := rowsUserPermissions.Scan(&permission.Resource, &permission.ResourceIdentifier, &permission.Operation, &permission.Effect); err != nil {
-			log.Printf("Failed to scan permission ||||||| || %v\n", err)
-			return false, fmt.Errorf("failed to scan permission ||||||||      |||||||| %v", err)
+		var resourceName, requiredOp string
+		if err := rowsUserPermissions.Scan(&permission.Resource, &permission.ResourceIdentifier,
+			&permission.Operation, &permission.Effect, &resourceName, &requiredOp); err != nil {
+			log.Printf("[ERROR] Failed to scan permission: %v", err)
+			return false, fmt.Errorf("failed to scan permission: %v", err)
 		}
 
-		log.Printf("Found permission |||||||| %+v\n", permission)
 
 		if permission.Effect == requiredPermission.Effect {
-			log.Printf("User %s is %s to perform the operation.\n", userID, requiredPermission.Effect)
+			log.Printf("[DEBUG] User %s has direct permission to perform the operation", userID)
 			permissionFound = true
 			break
 		}
@@ -717,70 +715,86 @@ func (repo PsqlRepo) CheckPermission(userID uuid.UUID, requiredPermission entity
 		return true, nil
 	}
 
+	// Check group permissions
 	queryGroups := `
-        SELECT g.id
+        SELECT g.id, g.title
         FROM auth.user_groups ug
         JOIN auth.groups g ON ug.group_id = g.id
         WHERE ug.user_id = $1
     `
-	log.Printf("Query to fetch user groups ||||||||||||||||  |||||||||||||| %s\n", queryGroups)
 	rowsGroups, err := repo.db.Query(queryGroups, userID)
 	if err != nil {
-		log.Printf("Failed to fetch user groups ||||||||||||||||  |||||||||||||| %v\n", err)
-		return false, fmt.Errorf("failed to fetch user groups ||||||||||||||||  |||||||||||||| %v", err)
+		log.Printf("[ERROR] Failed to fetch user groups: %v", err)
+		return false, fmt.Errorf("failed to fetch user groups: %v", err)
 	}
 	defer rowsGroups.Close()
 
 	var groups []uuid.UUID
 	for rowsGroups.Next() {
 		var groupID uuid.UUID
-		if err := rowsGroups.Scan(&groupID); err != nil {
-			log.Printf("Failed to scan group ID ||||||||||||||||  |||||||||||||| %v\n", err)
-			return false, fmt.Errorf("failed to scan group ID ||||||||||||||||  |||||||||||||| %v", err)
+		var groupTitle string
+		if err := rowsGroups.Scan(&groupID, &groupTitle); err != nil {
+			log.Printf("[ERROR] Failed to scan group: %v", err)
+			return false, fmt.Errorf("failed to scan group: %v", err)
 		}
 		groups = append(groups, groupID)
 	}
 
 	if len(groups) == 0 {
-		log.Printf("User %s does not belong to any group\n", userID)
 		return false, fmt.Errorf("user does not belong to any group")
 	}
 
-	groupIDs := pq.Array(groups)
 	queryGroupPermissions := `
-        SELECT p.resource, p.resource_id, o.name AS operation, p.effect
+        WITH operation_id AS (
+            SELECT id, name
+            FROM auth.operations
+            WHERE name = $3
+        ),
+        resource_id AS (
+            SELECT id, name
+            FROM auth.resources
+            WHERE name = $2
+        )
+        SELECT p.resource, p.resource_id, o.name AS operation, p.effect,
+               r.name as resource_name, oi.name as required_operation,
+               g.title as group_name
         FROM auth.group_permissions gp
         JOIN auth.permissions p ON gp.permission_id = p.id
+        JOIN auth.user_groups ug ON ug.group_id = gp.group_id
+        JOIN auth.groups g ON g.id = gp.group_id
+        JOIN resource_id r ON r.id = p.resource
         LEFT JOIN auth.operations o ON o.id = ANY(p.operations)
-        WHERE gp.group_id = ANY($1)
-        AND p.resource = $2
-        AND o.name = $3
-        AND (p.resource_id = $4 OR p.resource_id = '*')
-        AND p.effect = $5
+        CROSS JOIN operation_id oi
+        WHERE ug.user_id = $1
+        AND EXISTS (
+            SELECT 1
+            FROM operation_id oi
+            WHERE oi.id = ANY(p.operations)
+        )
+        AND p.effect = $4;
     `
-	log.Printf("Query to fetch group permissions|||||||||||||||| %s\n", queryGroupPermissions)
-	rowsGroupPermissions, err := repo.db.Query(queryGroupPermissions, groupIDs, requiredPermission.Resource, requiredPermission.Operation, requiredPermission.ResourceIdentifier, requiredPermission.Effect)
+
+	rowsGroupPermissions, err := repo.db.Query(queryGroupPermissions, userID, requiredPermission.Resource, requiredPermission.Operation, requiredPermission.Effect)
 	if err != nil {
-		log.Printf("Failed to fetch group permissions |||||||||||||| %v\n", err)
-		return false, fmt.Errorf("failed to fetch group permissions |||||||||||||| %v", err)
+		log.Printf("[ERROR] Failed to fetch group permissions: %v", err)
+		return false, fmt.Errorf("failed to fetch group permissions: %v", err)
 	}
 	defer rowsGroupPermissions.Close()
 
 	for rowsGroupPermissions.Next() {
 		var permission entity.Permission
-		if err := rowsGroupPermissions.Scan(&permission.Resource, &permission.ResourceIdentifier, &permission.Operation, &permission.Effect); err != nil {
-			log.Printf("Failed to scan permission |||||||||||||| %v\n", err)
-			return false, fmt.Errorf("failed to scan permission |||||||||||||| %v", err)
+		var resourceName, requiredOp, groupName string
+		if err := rowsGroupPermissions.Scan(&permission.Resource, &permission.ResourceIdentifier,
+			&permission.Operation, &permission.Effect, &resourceName, &requiredOp, &groupName); err != nil {
+			log.Printf("[ERROR] Failed to scan group permission: %v", err)
+			return false, fmt.Errorf("failed to scan group permission: %v", err)
 		}
-		log.Printf("Found group permission |||||||||||||| %+v\n", permission)
 
 		if permission.Effect == requiredPermission.Effect {
-			log.Printf("User %s is %s to perform the operation via group permission.\n", userID, requiredPermission.Effect)
 			return true, nil
 		}
 	}
 
-	log.Printf("User %s does not have the required permission.\n", userID)
 	return false, fmt.Errorf("user does not have the required permission")
 }
 

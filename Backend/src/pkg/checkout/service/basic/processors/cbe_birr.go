@@ -14,13 +14,13 @@ func ProcessCBRBirr(id string, amount float64, phone string) error {
 		"amount":        amount,
 		"description":   "Payment for service",
 		"referenceId":   id,
-		"callbackUrl":   "https://api.Socialpay.co:32000/api/v1/checkout/transactions/notify",
+		"callbackUrl":   "https://api.socialpay.co:32000/api/v1/checkout/transactions/notify",
 		"phoneNumber":   phone,
 		"merchantId":    "TsegawTest",
 		"merchantKey":   "piHTZDyB1jh8OK1Jb04EcA==",
 		"terminalId":    "202526",
 		"credentialKey": "A49euY3AvwQCPt8FOKsOSQ==",
-		"userId":        "SocialOperator",
+		"userId":        "socialOperator",
 	}
 
 	serPld, err := json.Marshal(pld)

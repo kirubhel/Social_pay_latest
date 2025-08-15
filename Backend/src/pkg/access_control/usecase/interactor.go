@@ -18,6 +18,7 @@ type Interactor interface {
 	DeletePermission(resourceID uuid.UUID, permissionID uuid.UUID) error
 	UpdatePermission(permissionID uuid.UUID, resourceID string, resource uuid.UUID, operation []uuid.UUID, effect string) (*entity.Permission, error)
 	ListPermissions() ([]entity.Permission, error)
+	CheckPermission(userID uuid.UUID, requiredPermission entity.Permission) (bool, error)
 
 	ListUsers() ([]entity.User, error)
 

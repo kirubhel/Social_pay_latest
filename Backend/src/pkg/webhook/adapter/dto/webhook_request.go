@@ -21,17 +21,17 @@ type WebhookRequest struct {
 }
 
 type WebhookEventMerchant struct {
-	Event          txEntity.TransactionType `json:"event"`
-	ReferenceId    string                   `json:"referenceId"`
-	SocialPayTxnID string                   `json:"SocialpayTxnId"`
-	Status         string                   `json:"status"`
-	Amount         string                   `json:"amount"`
-	CallbackURL    string                   `json:"callbackUrl"`
-	Message        string                   `json:"message"`
-	ProviderTxID   string                   `json:"providerTxId"`
-	Timestamp      time.Time                `json:"timestamp"`
-	MerchantID     string                   `json:"merchantId"`
-	UserID         string                   `json:"userId"`
+	Event        txEntity.TransactionType `json:"event"`
+	ReferenceId  string                   `json:"referenceId"`
+	SocialPayTxnID string                   `json:"socialpayTxnId"`
+	Status       string                   `json:"status"`
+	Amount       string                   `json:"amount"`
+	CallbackURL  string                   `json:"callbackUrl"`
+	Message      string                   `json:"message"`
+	ProviderTxID string                   `json:"providerTxId"`
+	Timestamp    time.Time                `json:"timestamp"`
+	MerchantID   string                   `json:"merchantId"`
+	UserID       string                   `json:"userId"`
 }
 
 type WebhookMessage struct {

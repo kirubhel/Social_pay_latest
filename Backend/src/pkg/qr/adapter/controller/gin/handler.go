@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	auth_entity "github.com/socialpay/socialpay/src/pkg/authv2/core/entity"
 	"github.com/socialpay/socialpay/src/pkg/qr/core/entity"
 	"github.com/socialpay/socialpay/src/pkg/qr/usecase"
 	"github.com/socialpay/socialpay/src/pkg/shared/logging"
@@ -18,24 +19,36 @@ type Handler struct {
 	qrUseCase     usecase.QRUseCase
 	log           logging.Logger
 	jwtMiddleware gin.HandlerFunc
+	rbac          *ginMiddleware.RBACV2
 }
 
-// SetupQRManagementRoutes sets up the QR management routes (protected by JWT)
+// SetupQRManagementRoutes sets up the QR management routes (protected by JWT and RBAC)
 func (h *Handler) RegisterRouter(router *gin.RouterGroup) {
 	qrMgmt := router.Group("/qr_mgmt", h.jwtMiddleware, ginMiddleware.MerchantIDMiddleware())
-	// QR Link management endpoints
-	qrMgmt.POST("/links", h.CreateQRLink)
-	qrMgmt.GET("/links", h.GetQRLinks)
-	qrMgmt.GET("/links/:id", h.GetQRLink)
-	qrMgmt.PUT("/links/:id", h.UpdateQRLink)
-	qrMgmt.DELETE("/links/:id", h.DeleteQRLink)
+	// QR Link management endpoints with RBAC protection
+	qrMgmt.POST("/links",
+		h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_QR, auth_entity.OPERATION_CREATE),
+		h.CreateQRLink)
+	qrMgmt.GET("/links",
+		h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_QR, auth_entity.OPERATION_READ),
+		h.GetQRLinks)
+	qrMgmt.GET("/links/:id",
+		h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_QR, auth_entity.OPERATION_READ),
+		h.GetQRLink)
+	qrMgmt.PUT("/links/:id",
+		h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_QR, auth_entity.OPERATION_UPDATE),
+		h.UpdateQRLink)
+	qrMgmt.DELETE("/links/:id",
+		h.rbac.RequirePermissionForMerchant(auth_entity.RESOURCE_QR, auth_entity.OPERATION_DELETE),
+		h.DeleteQRLink)
 }
 
-func NewHandler(qrUseCase usecase.QRUseCase, jwtMiddleware gin.HandlerFunc) *Handler {
+func NewHandler(qrUseCase usecase.QRUseCase, jwtMiddleware gin.HandlerFunc, rbac *ginMiddleware.RBACV2) *Handler {
 	return &Handler{
 		qrUseCase:     qrUseCase,
 		log:           logging.NewStdLogger("qr_handler"),
 		jwtMiddleware: jwtMiddleware,
+		rbac:          rbac,
 	}
 }
 

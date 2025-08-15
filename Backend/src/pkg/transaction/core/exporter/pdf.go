@@ -47,7 +47,7 @@ func CreatePDFReport(title string, transactions []entity.Transaction) *gofpdf.Fp
 			boolToStr(t.HasChallenge),
 			boolToStr(t.WebhookReceived),
 			boolToStr(t.Test),
-			fmt.Sprintf("%.2f", t.Amount),
+			fmt.Sprintf("%.2f", t.BaseAmount),
 			fmt.Sprintf("%.2f", t.FeeAmount),
 			fmt.Sprintf("%.2f", t.AdminNet),
 			fmt.Sprintf("%.2f", t.VatAmount),

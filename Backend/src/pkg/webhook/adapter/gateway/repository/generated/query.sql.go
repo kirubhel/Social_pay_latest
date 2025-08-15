@@ -45,35 +45,6 @@ func (q *Queries) CreateCallbackLog(ctx context.Context, arg CreateCallbackLogPa
 	return err
 }
 
-const createMerchantWallet = `-- name: CreateMerchantWallet :exec
-INSERT INTO merchant.wallet (
-    id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at
-) VALUES (
-    $1, $2, $3, $4, $5, $6, NOW(), NOW()
-)
-`
-
-type CreateMerchantWalletParams struct {
-	ID           uuid.UUID `json:"id"`
-	UserID       uuid.UUID `json:"user_id"`
-	MerchantID   uuid.UUID `json:"merchant_id"`
-	Amount       float64   `json:"amount"`
-	LockedAmount float64   `json:"locked_amount"`
-	Currency     string    `json:"currency"`
-}
-
-func (q *Queries) CreateMerchantWallet(ctx context.Context, arg CreateMerchantWalletParams) error {
-	_, err := q.exec(ctx, q.createMerchantWalletStmt, createMerchantWallet,
-		arg.ID,
-		arg.UserID,
-		arg.MerchantID,
-		arg.Amount,
-		arg.LockedAmount,
-		arg.Currency,
-	)
-	return err
-}
-
 const getAllCallbackLogs = `-- name: GetAllCallbackLogs :many
 SELECT id, user_id, txn_id, merchant_id, status, request_body, response_body, retry_count, created_at, updated_at FROM webhook.callback_logs
 ORDER BY created_at DESC
@@ -146,10 +117,17 @@ const getCallbackLogsByMerchantID = `-- name: GetCallbackLogsByMerchantID :many
 SELECT id, user_id, txn_id, merchant_id, status, request_body, response_body, retry_count, created_at, updated_at FROM webhook.callback_logs
 WHERE merchant_id = $1
 ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) GetCallbackLogsByMerchantID(ctx context.Context, merchantID uuid.UUID) ([]WebhookCallbackLog, error) {
-	rows, err := q.query(ctx, q.getCallbackLogsByMerchantIDStmt, getCallbackLogsByMerchantID, merchantID)
+type GetCallbackLogsByMerchantIDParams struct {
+	MerchantID uuid.UUID `json:"merchant_id"`
+	Limit      int32     `json:"limit"`
+	Offset     int32     `json:"offset"`
+}
+
+func (q *Queries) GetCallbackLogsByMerchantID(ctx context.Context, arg GetCallbackLogsByMerchantIDParams) ([]WebhookCallbackLog, error) {
+	rows, err := q.query(ctx, q.getCallbackLogsByMerchantIDStmt, getCallbackLogsByMerchantID, arg.MerchantID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -262,70 +240,6 @@ func (q *Queries) GetCallbackLogsByTransactionID(ctx context.Context, txnID uuid
 	return items, nil
 }
 
-const getMerchantWalletByMerchantID = `-- name: GetMerchantWalletByMerchantID :one
-SELECT id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at FROM merchant.wallet
-WHERE merchant_id = $1
-`
-
-func (q *Queries) GetMerchantWalletByMerchantID(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error) {
-	row := q.queryRow(ctx, q.getMerchantWalletByMerchantIDStmt, getMerchantWalletByMerchantID, merchantID)
-	var i MerchantWallet
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.MerchantID,
-		&i.Amount,
-		&i.LockedAmount,
-		&i.Currency,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getMerchantWalletByMerchantIDForUpdate = `-- name: GetMerchantWalletByMerchantIDForUpdate :one
-SELECT id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at FROM merchant.wallet
-WHERE merchant_id = $1
-FOR UPDATE
-`
-
-func (q *Queries) GetMerchantWalletByMerchantIDForUpdate(ctx context.Context, merchantID uuid.UUID) (MerchantWallet, error) {
-	row := q.queryRow(ctx, q.getMerchantWalletByMerchantIDForUpdateStmt, getMerchantWalletByMerchantIDForUpdate, merchantID)
-	var i MerchantWallet
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.MerchantID,
-		&i.Amount,
-		&i.LockedAmount,
-		&i.Currency,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getMerchantWalletByUserID = `-- name: GetMerchantWalletByUserID :one
-SELECT id, user_id, merchant_id, amount, locked_amount, currency, created_at, updated_at FROM merchant.wallet
-WHERE user_id = $1
-`
-
-func (q *Queries) GetMerchantWalletByUserID(ctx context.Context, userID uuid.UUID) (MerchantWallet, error) {
-	row := q.queryRow(ctx, q.getMerchantWalletByUserIDStmt, getMerchantWalletByUserID, userID)
-	var i MerchantWallet
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.MerchantID,
-		&i.Amount,
-		&i.LockedAmount,
-		&i.Currency,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const updateCallbackLog = `-- name: UpdateCallbackLog :exec
 UPDATE webhook.callback_logs
 SET status = $2,
@@ -349,41 +263,5 @@ func (q *Queries) UpdateCallbackLog(ctx context.Context, arg UpdateCallbackLogPa
 		arg.ResponseBody,
 		arg.RetryCount,
 	)
-	return err
-}
-
-const updateMerchantWallet = `-- name: UpdateMerchantWallet :exec
-UPDATE merchant.wallet
-SET amount = $2,
-    locked_amount = $3,
-    updated_at = NOW()
-WHERE id = $1
-`
-
-type UpdateMerchantWalletParams struct {
-	ID           uuid.UUID `json:"id"`
-	Amount       float64   `json:"amount"`
-	LockedAmount float64   `json:"locked_amount"`
-}
-
-func (q *Queries) UpdateMerchantWallet(ctx context.Context, arg UpdateMerchantWalletParams) error {
-	_, err := q.exec(ctx, q.updateMerchantWalletStmt, updateMerchantWallet, arg.ID, arg.Amount, arg.LockedAmount)
-	return err
-}
-
-const updateMerchantWalletAmountByMerchantID = `-- name: UpdateMerchantWalletAmountByMerchantID :exec
-UPDATE merchant.wallet
-SET amount = $2,
-    updated_at = NOW()
-WHERE merchant_id = $1
-`
-
-type UpdateMerchantWalletAmountByMerchantIDParams struct {
-	MerchantID uuid.UUID `json:"merchant_id"`
-	Amount     float64   `json:"amount"`
-}
-
-func (q *Queries) UpdateMerchantWalletAmountByMerchantID(ctx context.Context, arg UpdateMerchantWalletAmountByMerchantIDParams) error {
-	_, err := q.exec(ctx, q.updateMerchantWalletAmountByMerchantIDStmt, updateMerchantWalletAmountByMerchantID, arg.MerchantID, arg.Amount)
 	return err
 }

@@ -89,7 +89,7 @@ func (controller Controller) GetInitTransaction(w http.ResponseWriter, r *http.R
 	}
 	host := os.Getenv("HOST")
 	if host == "" {
-		host = "http://localhost:8004" // Default value if the environment variable is not set
+		host = "http://196.190.251.194:8082" // Default value if the environment variable is not set
 	}
 	api_key := r.Header.Get("api-key")
 

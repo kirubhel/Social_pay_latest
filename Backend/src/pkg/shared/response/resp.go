@@ -14,11 +14,15 @@ type SuccessResponse struct {
 	Data    interface{} `json:"data" swaggertype:"object"`
 }
 
+type MessageResponse struct {
+	Message string `json:"message" example:"Operation successful"`
+}
+
 // PAGINATED SUCCESS RESPONSE
 type PaginatedResponse struct {
-	Success    bool        `json:"success"`
-	Data       interface{} `json:"data" swaggertype:"object"`
-	Pagination pagination.PaginationInfo  `json:"pagination"`
+	Success    bool                      `json:"success"`
+	Data       interface{}               `json:"data" swaggertype:"object"`
+	Pagination pagination.PaginationInfo `json:"pagination"`
 }
 
 // API ERROR OBJ

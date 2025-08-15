@@ -15,13 +15,13 @@ import (
 type MerchantsAddress struct {
 	ID             uuid.UUID      `json:"id"`
 	MerchantID     uuid.UUID      `json:"merchant_id"`
-	AddressType    string         `json:"address_type"`
-	StreetAddress1 string         `json:"street_address_1"`
+	AddressType    sql.NullString `json:"address_type"`
+	StreetAddress1 sql.NullString `json:"street_address_1"`
 	StreetAddress2 sql.NullString `json:"street_address_2"`
-	City           string         `json:"city"`
-	Region         string         `json:"region"`
+	City           sql.NullString `json:"city"`
+	Region         sql.NullString `json:"region"`
 	PostalCode     sql.NullString `json:"postal_code"`
-	Country        string         `json:"country"`
+	Country        sql.NullString `json:"country"`
 	IsPrimary      sql.NullBool   `json:"is_primary"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
@@ -88,6 +88,7 @@ type MerchantsMerchant struct {
 	EstablishedDate            sql.NullTime   `json:"established_date"`
 	CreatedAt                  time.Time      `json:"created_at"`
 	UpdatedAt                  time.Time      `json:"updated_at"`
+	DeletedAt                  sql.NullTime   `json:"deleted_at"`
 	Status                     string         `json:"status"`
 }
 

@@ -1,6 +1,6 @@
 # Notifications Service
 
-A clean, extensible notification service for Social Pay that supports SMS, email (future), and in-app notifications (future).
+A clean, extensible notification service for SocialPay that supports SMS, email (future), and in-app notifications (future).
 
 ## Architecture
 
@@ -91,7 +91,7 @@ Payment of [Amount] [Currency] to [Merchant] successful.
 Reference: [Reference]
 Date: [Date] at [Time]
 
-Winners choose and use Social Pay!
+Winners choose and use SocialPay!
 ```
 
 **For Merchants:**
@@ -101,7 +101,7 @@ You received [Amount] [Currency] from [Customer].
 Reference: [Reference]  
 Date: [Date] at [Time]
 
-Social Pay - Your trusted payment partner!
+SocialPay - Your trusted payment partner!
 ```
 
 **For Tipees:**
@@ -126,7 +126,7 @@ Errors are logged but don't prevent transaction processing from continuing.
 
 ## Database Integration
 
-The service integrates with existing Social Pay database tables:
+The service integrates with existing SocialPay database tables:
 - `auth.users` - User information
 - `auth.phones` & `auth.phone_identities` - Phone numbers
 - `merchants.merchants` - Merchant information
