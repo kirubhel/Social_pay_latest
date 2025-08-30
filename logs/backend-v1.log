@@ -1,8 +1,0 @@
-2025/08/01 12:02:15 psql.go:29: [SOCIALPAY1] [AUTH] [INFRA] [STORAGE] [PSQL] Initiating pg db
-|||||||||> 196.190.251.48 postgres P@ssw0rd
-2025/08/01 12:02:15 psql.go:72: [SOCIALPAY1] [AUTH] [INFRA] [STORAGE] [PSQL] Successfully connected to database
-2025/08/01 12:02:16 adapter.go:28: [AUTH] [GATEWAY] [REPO] [PSQL] Looking for init.sql at: /Users/oza/Developer/Personal Projects/Social Pay/Social_pay_latest/Backend/src/pkg/checkout/adapter/gateway/repo/psql/init.sql
-2025/08/01 12:02:16 main.go:192: [AUTH] [GATEWAY] [REPO] [PSQL] [CHECKOUT] checkout initlized
-2025/08/01 12:02:16 main.go:204: [AUTH] [GATEWAY] [REPO] [PSQL] Starting server on :8004 with graceful shutdown
-2025/08/01 18:19:05 http: Server closed
-2025/08/01 18:19:05 main.go:207: [AUTH] [GATEWAY] [REPO] [PSQL] Server exited properly
